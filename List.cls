@@ -60,9 +60,9 @@ Option Base 1
 '
 ' Wipe --------  |-> Move
 '             |--|
-' Dupelicate --  |-> Shift <-(IndexValidate)
-'    |
-'    |-------------> Permute -> Swap -> Sort <-(Arange)
+' Copy --------  |-> Shift <-(IndexValidate)
+'  |
+'  |---------------> Permute -> Swap -> Sort <-(Arange)
 '                       ^
 ' (IndexListValidate) --|
 '
@@ -244,16 +244,12 @@ With This
 End With
 End Property
 
-'@DefaultMember
 Public Property Let Item(ByVal index As Long, ByVal what As Variant)
-Attribute Item.VB_UserMemId = 0
     Call IndexValidate(index)
     Let This.theArray(index) = what
 End Property
 
-'@DefaultMember
 Public Property Set Item(ByVal index As Long, ByVal what As Variant)
-Attribute Item.VB_UserMemId = 0
     Call IndexValidate(index)
     Set This.theArray(index) = what
 End Property
@@ -688,7 +684,7 @@ Public Sub Wipe(Optional ByVal index As Long)
     End If
 End Sub
 
-Public Sub Dupelicate(ByVal index As Long, ByVal indexFrom As Long)
+Public Sub Copy(ByVal index As Long, ByVal indexFrom As Long)
     If index <> indexFrom Then
         Call LetOrSet(index, Me(indexFrom))
 '        If IsObject(Me(indexFrom)) Then
@@ -701,7 +697,7 @@ End Sub
 
 Public Sub Move(ByVal index As Long, ByVal indexFrom As Long)
     If index <> indexFrom Then
-        Call Me.Dupelicate(index, indexFrom)
+        Call Me.Copy(index, indexFrom)
         Call Me.Wipe(indexFrom)
     End If
 End Sub
@@ -728,7 +724,7 @@ With Me
     
     If offset > 0 Then
         For i = IIf(indexEnd + offset <= thisLength, indexEnd + offset, thisLength) To indexStart + offset Step -1
-            Call .Dupelicate(i, i - offset)
+            Call .Copy(i, i - offset)
         Next i
         
         For i = indexStart + offset - 1 To indexStart Step -1
@@ -736,7 +732,7 @@ With Me
         Next i
     ElseIf offset < 0 Then
         For i = IIf(indexStart + offset >= 1, indexStart + offset, 1) To indexEnd + offset
-            Call .Dupelicate(i, i - offset)
+            Call .Copy(i, i - offset)
         Next i
         
         For i = indexEnd + offset + 1 To indexEnd
@@ -764,7 +760,7 @@ With Me
         
         Dim i As Long
         For i = listLength To 2 Step -1
-            Call .Dupelicate(indexList(i), indexList(i - 1))
+            Call .Copy(indexList(i), indexList(i - 1))
         Next i
         
         Call .LetOrSet(indexList(1), lastItem)
@@ -811,7 +807,7 @@ Public Sub Map(ByVal indexList As List)
     Call Me.IndexListValidate(indexList)
     
     Dim newArray() As Variant
-    ReDim newArray(This.allocated) As Variant
+    ReDim newArray(indexList.Length) As Variant
     
     Dim i As Long
     For i = 1 To indexList.Length
@@ -822,8 +818,8 @@ Public Sub Map(ByVal indexList As List)
         End If
     Next i
     
-    Let This.theLength = indexList.Length
     Let This.theArray = newArray
+    Let This.theLength = indexList.Length
 End Sub
 
 Public Function MapTo(ByVal indexList As List) As List
@@ -1106,7 +1102,7 @@ Public Function FromEnumerable(ByRef obj As Variant) As List
     With New List
         Dim element As Variant
         For Each element In obj
-            Call Me.Add(element)
+            Call .Add(element)
         Next element
         
         Set FromEnumerable = .Self

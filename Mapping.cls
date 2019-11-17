@@ -102,9 +102,7 @@ Attribute Item.VB_UserMemId = 0
     End If
 End Property
 
-'@DefaultMember
 Public Property Let Item(ByVal key As Variant, ByVal what As Variant)
-Attribute Item.VB_UserMemId = 0
     Dim index As Long
     Let index = Me.IndexOfKey(key)
     
@@ -115,9 +113,7 @@ Attribute Item.VB_UserMemId = 0
     End If
 End Property
 
-'@DefaultMember
 Public Property Set Item(ByVal key As Variant, ByVal what As Variant)
-Attribute Item.VB_UserMemId = 0
     Dim index As Long
     Let index = Me.IndexOfKey(key)
     
@@ -163,13 +159,13 @@ With New Mapping
 End With
 End Function
 
-Public Function SetByIndex(ByVal index As Long, ByVal what As Variant) As Variant
+Public Sub SetByIndex(ByVal index As Long, ByVal what As Variant)
     If IsObject(what) Then
         Set valueList(index) = what
     Else
         Let valueList(index) = what
     End If
-End Function
+End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Information
