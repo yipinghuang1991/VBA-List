@@ -78,7 +78,7 @@ Public Property Get Capacity() As Long
 End Property
 
 Public Property Get Count() As Long
-    Let Count = keyList.Length
+    Let Count = keyList.Count
 End Property
 
 Public Function IndexOfKey(ByVal key As Variant) As Long
@@ -187,7 +187,7 @@ Public Function ContainsValue(ByVal value As Variant) As Boolean
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Preserve the List Length
+' Operations that Preserve the List Count
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub Reverse()
     Call keyList.Reverse
@@ -207,7 +207,7 @@ Public Sub Sort()
 End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Alter the List Length
+' Operations that Alter the List Count
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub Clear()
     Call keyList.Clear
@@ -253,12 +253,12 @@ End Function
 
 Public Function FromLists(ByVal newKeyList As List, ByVal newValueList As List) As Mapping
 With New Mapping
-    If newKeyList.Length <> newValueList.Length Then
+    If newKeyList.Count <> newValueList.Count Then
         Call Err.Raise(1, , "Error")
     End If
     
     Dim i As Long
-    For i = 1 To newKeyList.Length
+    For i = 1 To newKeyList.Count
         Call .Add(newKeyList(i), newValueList(i))
     Next i
     
@@ -302,8 +302,8 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
     Dim itemValue As String * 12
     Dim sep5 As String * 2: Let sep5 = " |"
     
-    Dim totalLength As Long
-    Let totalLength = Len(sep0) + Len(index) _
+    Dim totalCount As Long
+    Let totalCount = Len(sep0) + Len(index) _
                     + Len(sep1) + Len(keyType) _
                     + Len(sep2) + Len(keyValue) _
                     + Len(sep3) + Len(itemType) _
@@ -311,10 +311,10 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
                     + Len(sep5)
     
     Dim topAndButtom As String
-    Let topAndButtom = String(totalLength, "=")
+    Let topAndButtom = String(totalCount, "=")
     
     Dim middle As String
-    Let middle = String(totalLength, "-")
+    Let middle = String(totalCount, "-")
     
     Debug.Print "## Mapping Printing Start ##"
     
