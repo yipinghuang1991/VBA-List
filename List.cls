@@ -21,9 +21,9 @@ Option Base 1
 ' Class_Initialize
 ' Self
 ' Capacity
-' Count
+' Length -> Count
 ' TrimToSize
-' Resize -------> Clone
+' Resize
 ' IsIndexValid -> IndexValidate -> Item (Default Member) -> LetOrSet
 '
 ' ## Generators ##
@@ -45,27 +45,29 @@ Option Base 1
 '                                     |-> NumberOf
 '                                     --> IndexOfEach <-(Add)
 ' (IsNumberType) ----> IsNumberList
-' (IsIntegerType) ---> IsIntegerList
+' (IsIntegerType) ---> IsIntegerList ---> IsBitList
 '                         |v
 ' (IsIndexValid) ----> IsIndexList -----> IndexListValidate -----> GetBoolListFromIndexList <-(Falses)
 ' (IsBoolList) ------> IsBoolIndexList -> BoolIndexListValidate -> GetIndexListFromBoolList <-(Add)
 '
-' ## Operations that Preserves the List Count ##
+' ## Operations that Preserves the List Length ##
 '
+' Clear
 ' AsType
-' Invert
-' Reverse
 ' SetRange
+' Reverse
+' Invert ----------> BoolInvert
+' (IsBitList) -----> BitInvert
 '
-' Wipe --------  |-> Move
-'             |--|
-' Copy --------  |-> Shift <-(IndexValidate)
+' Wipe -------  |-> Move
+'            |--|
+' Copy -------  |-> Shift <-(IndexValidate)
 '  |
-'  |---------------> Permute -> Swap -> Sort <-(Arange)
-'                       ^
-' (IndexListValidate) --|
+'  |--------------> Permute -> Swap -> Sort <-(Arange)
+'                      ^
+' (IndexListValidate) -|
 '
-' ## Operations that Alters the List Count ##
+' ## Operations that Alters the List Length ##
 '
 ' (IndexListValidate) ---> Map
 '                      |-> MapTo
@@ -117,8 +119,8 @@ Option Base 1
 '
 ' ## Constructors ##
 '
-' Clone -------|
-' InsertRange ---> Concatenate
+' (Clone) -------|
+' (InsertRange) ---> Concatenate
 '
 ' FromEnumerable
 ' FromCollection
@@ -127,21 +129,37 @@ Option Base 1
 '
 ' ## Output ##
 '
+' Clone
+' GetRange
+' CopyTo
 ' ToArray
 ' ToCollection
 ' ToImmediate ---> ToImmediateHead
 '              |-> ToImmediateTail
 '
-' ## Math Helper Functions ##
+' ## Math Functions ##
 '
 ' Floor
 ' Ceil
 ' Round
+' Max
+' Min
+' Sum
+'
+' ## Vector Functions ##
+'
+' VecAbs
+' VecPow
+' VecNorm
+' VecSum
+' VecProd
+' ScalarProd
+' VecDot
 '
 ' ## Type Helper Functions
 '
-' IsIntegerType
 ' IsNumberType
+' IsIntegerType
 '
 ' ## Array Helper Functions
 '
@@ -152,16 +170,16 @@ Option Base 1
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Private Type Storage
     theArray() As Variant
-    theCount As Long
-    allocated As Long
+    Length As Long
+    Capacity As Long
 End Type
 
 Private This As Storage
 
 Private Sub Class_Initialize()
 With This
-    Let .allocated = 1
-    ReDim .theArray(1 To .allocated)
+    Let .Capacity = 1
+    ReDim .theArray(1 To .Capacity)
 End With
 End Sub
 
@@ -170,11 +188,15 @@ Public Property Get Self() As List
 End Property
 
 Public Property Get Capacity() As Long
-    Let Capacity = This.allocated
+    Let Capacity = This.Capacity
+End Property
+
+Public Property Get Length() As Long
+    Let Length = This.Length
 End Property
 
 Public Property Get Count() As Long
-    Let Count = This.theCount
+    Let Count = Me.Length
 End Property
 
 Public Sub TrimToSize()
@@ -182,45 +204,32 @@ Public Sub TrimToSize()
     Let newArray = Me.ToArray()
     
     Let This.theArray = newArray
-    Let This.allocated = This.theCount
+    Let This.Capacity = This.Length
 End Sub
 
-Public Sub Resize(ByVal newCount As Long)
+Public Sub Resize(ByVal newLength As Long)
 With This
-    If newCount > .theCount Then
-        If newCount > .allocated Then
+    If newLength > .Length Then
+        If newLength > .Capacity Then
             Do
-                Let .allocated = 2 * .allocated
-            Loop Until newCount <= .allocated
+                Let .Capacity = 2 * .Capacity
+            Loop Until newLength <= .Capacity
             
-            ReDim Preserve .theArray(.allocated)
+            ReDim Preserve .theArray(.Capacity)
         End If
-    Else ' newCount <= .theCount, equality is redundant
+    Else ' newLength <= .Length, equality is redundant
         Dim i As Long
-        For i = newCount + 1 To .theCount
+        For i = newLength + 1 To .Length
             Let .theArray(i) = Empty
         Next i
     End If
     
-    Let .theCount = newCount
+    Let .Length = newLength
 End With
 End Sub
 
-Public Function Clone() As List
-With New List
-    Call .Resize(This.theCount)
-    
-    Dim i As Long
-    For i = 1 To This.theCount
-        Call .LetOrSet(i, Me(i))
-    Next i
-    
-    Set Clone = .Self
-End With
-End Function
-
 Public Function IsIndexValid(ByVal index As Long) As Boolean ' Default to False
-    If (1 <= index) And (index <= This.theCount) Then
+    If (1 <= index) And (index <= This.Length) Then
         Let IsIndexValid = True
     End If
 End Function
@@ -266,21 +275,21 @@ End Sub
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Generators
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function EmptyList(ByVal inputCount As Long) As List
+Public Function EmptyList(ByVal inputLength As Long) As List
 With New List
-    Call .Resize(inputCount)
+    Call .Resize(inputLength)
     Set EmptyList = .Self
 End With
 End Function
 
 Public Function EmptyLike(ByVal lst As List) As List
-    Set EmptyLike = Me.EmptyList(lst.Count)
+    Set EmptyLike = Me.EmptyList(lst.Length)
 End Function
 
-Public Function Full(ByVal inputCount As Long, ByVal what As Variant) As List
-With Me.EmptyList(inputCount)
+Public Function Full(ByVal inputLength As Long, ByVal what As Variant) As List
+With Me.EmptyList(inputLength)
     Dim i As Long
-    For i = 1 To inputCount
+    For i = 1 To inputLength
         Call .LetOrSet(i, what)
     Next i
     
@@ -293,53 +302,53 @@ Public Function Repeat(ByVal what As Variant, ByVal times As Long) As List
 End Function
 
 Public Function FullLike(ByVal lst As List, ByVal what As Variant) As List
-    Set FullLike = Me.Full(lst.Count, what)
+    Set FullLike = Me.Full(lst.Length, what)
 End Function
 
-Public Function Ones(ByVal inputCount As Long) As List
-    Set Ones = Me.Full(inputCount, 1)
+Public Function Ones(ByVal inputLength As Long) As List
+    Set Ones = Me.Full(inputLength, 1)
 End Function
 
 Public Function OnesLike(ByVal lst As List) As List
-    Set OnesLike = Me.Ones(lst.Count)
+    Set OnesLike = Me.Ones(lst.Length)
 End Function
 
-Public Function Zeros(ByVal inputCount As Long) As List
-    Set Zeros = Me.Full(inputCount, 0)
+Public Function Zeros(ByVal inputLength As Long) As List
+    Set Zeros = Me.Full(inputLength, 0)
 End Function
 
 Public Function ZerosLike(ByVal lst As List) As List
-    Set ZerosLike = Me.Zeros(lst.Count)
+    Set ZerosLike = Me.Zeros(lst.Length)
 End Function
 
-Public Function Trues(ByVal inputCount As Long) As List
-    Set Trues = Me.Full(inputCount, True)
+Public Function Trues(ByVal inputLength As Long) As List
+    Set Trues = Me.Full(inputLength, True)
 End Function
 
 Public Function TruesLike(ByVal lst As List) As List
-    Set TruesLike = Me.Trues(lst.Count)
+    Set TruesLike = Me.Trues(lst.Length)
 End Function
 
-Public Function Falses(ByVal inputCount As Long) As List
-    Set Falses = Me.Full(inputCount, False)
+Public Function Falses(ByVal inputLength As Long) As List
+    Set Falses = Me.Full(inputLength, False)
 End Function
 
 Public Function FalsesLike(ByVal lst As List) As List
-    Set FalsesLike = Me.Falses(lst.Count)
+    Set FalsesLike = Me.Falses(lst.Length)
 End Function
 
 Public Function Arange(ByVal start As Variant, ByVal ends As Variant, _
                        Optional ByVal step As Variant = 1) As List
-    Dim extraCount As Long
-    Let extraCount = Int((ends - start) / step)
+    Dim extraLength As Long
+    Let extraLength = Int((ends - start) / step)
     
-    If extraCount < 0 Then Let extraCount = 0
+    If extraLength < 0 Then Let extraLength = 0
     
-    With Me.EmptyList(1 + extraCount)
+    With Me.EmptyList(1 + extraLength)
         Let .Self(1) = start
         
         Dim i As Long
-        For i = 2 To .Count
+        For i = 2 To .Length
             Let .Self(i) = .Self(i - 1) + step
         Next i
         
@@ -373,7 +382,7 @@ Public Function LogSpace(ByVal start As Variant, ByVal ends As Variant, _
     
     With Me.LinSpace(start, ends, num)
         Dim i As Long
-        For i = 1 To .Count
+        For i = 1 To .Length
             Let .Self(i) = base ^ (.Self(i))
         Next i
         
@@ -390,11 +399,11 @@ Public Function GeomSpace(ByVal start As Variant, ByVal ends As Variant, _
         Let .Self(1) = start
         
         Dim i As Long
-        For i = 2 To .Count - 1
+        For i = 2 To .Length - 1
             Let .Self(i) = base ^ (.Self(i))
         Next i
         
-        Let .Self(.Count) = ends
+        Let .Self(.Length) = ends
         
         Set GeomSpace = .Self
     End With
@@ -405,19 +414,19 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function LastIndexOf(ByVal what As Variant, _
                             Optional ByVal indexStart As Long, _
-                            Optional ByVal indexCount As Long = -1) As Long ' Default to 0
+                            Optional ByVal indexLength As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
         Call IndexValidate(indexStart)
     Else ' indexStart = 0
-        Let indexStart = This.theCount ' Default
+        Let indexStart = This.Length ' Default
     End If
     
     Dim indexEnd As Long
     
-    If indexCount = -1 Then
+    If indexLength = -1 Then
         Let indexEnd = 1
     Else
-        Let indexEnd = indexStart - indexCount + 1
+        Let indexEnd = indexStart - indexLength + 1
         
         If indexEnd < 1 Then
             Let indexEnd = 1
@@ -449,7 +458,7 @@ End Function
 
 Public Function IndexOf(ByVal what As Variant, _
                         Optional ByVal indexStart As Long, _
-                        Optional ByVal indexCount As Long = -1) As Long ' Default to 0
+                        Optional ByVal indexLength As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
         Call IndexValidate(indexStart)
     Else ' indexStart = 0
@@ -458,13 +467,13 @@ Public Function IndexOf(ByVal what As Variant, _
     
     Dim indexEnd As Long
     
-    If indexCount = -1 Then
-        Let indexEnd = This.theCount
+    If indexLength = -1 Then
+        Let indexEnd = This.Length
     Else
-        Let indexEnd = indexStart + indexCount - 1
+        Let indexEnd = indexStart + indexLength - 1
         
-        If indexEnd > This.theCount Then
-            Let indexEnd = This.theCount
+        If indexEnd > This.Length Then
+            Let indexEnd = This.Length
         End If
     End If
     
@@ -496,8 +505,8 @@ Public Function Contains(ByVal what As Variant) As Boolean
 End Function
 
 Public Function NumberOf(ByVal what As Variant) As Long ' Default to 0
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
     Dim i As Long ' Default to 0
     
@@ -506,12 +515,12 @@ Public Function NumberOf(ByVal what As Variant) As Long ' Default to 0
         If i Then ' i > 0, i.e., i <> 0
             Let NumberOf = NumberOf + 1
         End If
-    Loop While i And (i < thisCount)
+    Loop While i And (i < thisLength)
 End Function
 
 Public Function IndexOfEach(ByVal what As Variant) As List
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
     With New List
         Dim i As Long ' Default to 0
@@ -520,44 +529,64 @@ Public Function IndexOfEach(ByVal what As Variant) As List
             If i Then ' i > 0, i.e., i <> 0
                 Call .Add(i)
             End If
-        Loop While i And (i < thisCount)
+        Loop While i And (i < thisLength)
         
         Set IndexOfEach = .Self
     End With
 End Function
 
-Public Function IsNumberList() As Boolean
+Public Function IsNumberList(ByVal numberList As List) As Boolean
+With numberList
     Let IsNumberList = True
     
     Dim i As Long
-    For i = 1 To This.theCount
-        If Not Me.IsNumberType(Me(i)) Then
+    For i = 1 To .Length
+        If Not List.IsNumberType(.Self(i)) Then
             Let IsNumberList = False
             Exit For
         End If
     Next i
+End With
 End Function
 
-Public Function IsIntegerList() As Boolean
+Public Function IsIntegerList(ByVal integerList As List) As Boolean
+With integerList
     Let IsIntegerList = True
     
     Dim i As Long
-    For i = 1 To This.theCount
-        If Not IsIntegerType(Me(i)) Then
+    For i = 1 To .Length
+        If Not List.IsIntegerType(.Self(i)) Then
             Let IsIntegerList = False
             Exit For
         End If
     Next i
+End With
+End Function
+
+Public Function IsBitList(ByVal bitList As List) As Boolean
+With bitList
+    If List.IsIntegerList(.Self) Then
+        Let IsBitList = True
+        
+        Dim i As Long
+        For i = 1 To .Length
+            If (.Self(i) <> 0) And (.Self(i) <> 1) Then
+                Let IsBitList = False
+                Exit For
+            End If
+        Next i
+    End If
+End With
 End Function
 
 Public Function IsIndexList(ByVal indexList As List) As Boolean
 With indexList
-    If .IsIntegerList() Then
+    If List.IsIntegerList(.Self) Then
         Let IsIndexList = True
         
         Dim i As Long
-        For i = 1 To .Count
-            If Not IsIndexValid(.Self(i)) Then
+        For i = 1 To .Length
+            If Not List.IsIndexValid(.Self(i)) Then
                 Let IsIndexList = False
                 Exit For
             End If
@@ -575,9 +604,9 @@ End Sub
 Public Function GetBoolListFromIndexList(ByVal indexList As List) As List
     Call Me.IndexListValidate(indexList)
     
-    With List.Falses(This.theCount)
+    With List.Falses(This.Length)
         Dim i As Long
-        For i = 1 To indexList.Count
+        For i = 1 To indexList.Length
             Let .Self(indexList(i)) = True
         Next i
         Set GetBoolListFromIndexList = .Self
@@ -589,7 +618,7 @@ With boolList
     Let IsBoolList = True
     
     Dim i As Long
-    For i = 1 To .Count
+    For i = 1 To .Length
         If VarType(.Self(i)) <> vbBoolean Then
             Let IsBoolList = False
             Exit For
@@ -600,7 +629,7 @@ End Function
 
 Public Function IsBoolIndexList(ByVal boolIndexList As List) As Boolean
 With boolIndexList
-    If .Count = This.theCount Then
+    If .Length = This.Length Then
         Let IsBoolIndexList = IsBoolList(boolIndexList)
     End If
 End With
@@ -617,7 +646,7 @@ Public Function GetIndexListFromBoolList(ByVal boolList As List) As List
     
     With New List
         Dim i As Long
-        For i = 1 To boolList.Count
+        For i = 1 To boolList.Length
             If boolList(i) Then
                 Call .Add(i)
             End If
@@ -627,7 +656,7 @@ Public Function GetIndexListFromBoolList(ByVal boolList As List) As List
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Preserve the List Count
+' Operations that Preserve the List Length
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub Clear()
     Call Me.Resize(0)
@@ -638,55 +667,55 @@ Public Sub AsType(ByVal whatType As Variant)
 
     Select Case whatType
         Case VbVarType.vbBoolean
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CBool(Me(i))
             Next i
 '        Case VbVarType.vbByte
-'            For i = 1 To This.theCount
+'            For i = 1 To This.Length
 '                Let Me(i) = CByte(Me(i))
 '            Next i
 '        Case VbVarType.vbCurrency
-'            For i = 1 To This.theCount
+'            For i = 1 To This.Length
 '                Let Me(i) = CCur(Me(i))
 '            Next i
         Case VbVarType.vbDate
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CDate(Me(i))
             Next i
         Case VbVarType.vbDouble
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CDbl(Me(i))
             Next i
 '        Case VbVarType.vbDecimal
-'            For i = 1 To This.theCount
+'            For i = 1 To This.Length
 '                Let Me(i) = CDec(Me(i))
 '            Next i
 '        Case VbVarType.vbInteger
-'            For i = 1 To This.theCount
+'            For i = 1 To This.Length
 '                Let Me(i) = CInt(Me(i))
 '            Next i
         Case VbVarType.vbLong
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CLng(Me(i))
             Next i
         Case VbVarType.vbLongLong
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CLngLng(Me(i))
             Next i
         Case VbVarType.vbSingle
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CSng(Me(i))
             Next i
         Case VbVarType.vbString
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CStr(Me(i))
             Next i
         Case VbVarType.vbVariant
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = CVar(Me(i))
             Next i
         Case "Real", "Numeric", "Numerical", "Number"
-            For i = 1 To This.theCount
+            For i = 1 To This.Length
                 Let Me(i) = Val(Me(i))
             Next i
         Case Else
@@ -694,27 +723,31 @@ Public Sub AsType(ByVal whatType As Variant)
     End Select
 End Sub
 
-Public Sub Invert()
+Public Sub SetRange(ByVal index As Long, ByVal lst As List)
+    If index + lst.Length - 1 > This.Length Then
+        Call Err.Raise(1, , "Error")
+    End If
+    
     Dim i As Long
-    For i = 1 To This.theCount
-        Let Me(i) = Not Me(i)
+    For i = index To index + lst.Length - 1
+        Call Me.LetOrSet(i, lst(i - index + 1))
     Next i
 End Sub
 
 Public Sub Reverse()
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
-    If thisCount Then ' thisCount <> 0
+    If thisLength Then ' thisLength <> 0
         Dim newArray() As Variant
-        ReDim newArray(This.allocated) As Variant
+        ReDim newArray(This.Capacity) As Variant
     
         Dim i As Long
-        For i = 1 To thisCount
+        For i = 1 To thisLength
             If IsObject(Me(i)) Then
-                Set newArray(i) = Me(thisCount - i + 1)
+                Set newArray(i) = Me(thisLength - i + 1)
             Else
-                Let newArray(i) = Me(thisCount - i + 1)
+                Let newArray(i) = Me(thisLength - i + 1)
             End If
         Next i
         
@@ -722,15 +755,34 @@ Public Sub Reverse()
     End If
 End Sub
 
-Public Sub SetRange(ByVal index As Long, ByVal lst As List)
-    If index + lst.Count - 1 > This.theCount Then
-        Call Err.Raise(1, , "Error")
-    End If
-    
+Public Sub Invert()
     Dim i As Long
-    For i = index To index + lst.Count - 1
-        Call Me.LetOrSet(i, lst(i - index + 1))
+    For i = 1 To This.Length
+        Let Me(i) = Not Me(i)
     Next i
+End Sub
+
+Public Sub BoolInvert()
+    If List.IsBoolList(Me) Then
+        Call Me.Invert
+    Else
+        Call Err.Raise(1, , "Not a bool list.")
+    End If
+End Sub
+
+Public Sub BitInvert()
+    If List.IsBitList(Me) Then
+        Dim i As Long
+        For i = 1 To This.Length
+            If Me(i) Then ' Me(i) <> 0, i.e., Me(i) = 1
+                Let Me(i) = 0
+            Else
+                Let Me(i) = 1
+            End If
+        Next i
+    Else
+        Call Err.Raise(1, , "Not a bit list.")
+    End If
 End Sub
 
 Public Sub Wipe(Optional ByVal index As Long)
@@ -739,7 +791,7 @@ Public Sub Wipe(Optional ByVal index As Long)
     Else
         With Me
             Dim i As Long
-            For i = 1 To .Count
+            For i = 1 To .Length
                 Call .Wipe(i) ' Recursively
             Next i
         End With
@@ -761,10 +813,10 @@ End Sub
 
 Public Sub Shift(ByVal offset As Long, _
                  Optional ByVal indexStart As Long, _
-                 Optional ByVal indexCount As Long = -1)
+                 Optional ByVal indexLength As Long = -1)
 With Me
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
     If indexStart Then ' indexStart <> 0
         Call IndexValidate(indexStart)
@@ -774,24 +826,24 @@ With Me
     
     Dim indexEnd As Long
     
-    If indexCount = -1 Then
-        Let indexEnd = This.theCount
+    If indexLength = -1 Then
+        Let indexEnd = This.Length
     Else
-        Let indexEnd = indexStart + indexCount - 1
+        Let indexEnd = indexStart + indexLength - 1
         
-        If indexEnd > This.theCount Then
-            Let indexEnd = This.theCount
+        If indexEnd > This.Length Then
+            Let indexEnd = This.Length
         End If
     End If
     
     Dim i As Long
     
     If offset > 0 Then
-        For i = IIf(indexEnd + offset <= thisCount, indexEnd + offset, thisCount) To indexStart + offset Step -1
+        For i = IIf(indexEnd + offset <= thisLength, indexEnd + offset, thisLength) To indexStart + offset Step -1
             Call .Copy(i, i - offset)
         Next i
         
-        For i = IIf(indexStart + offset - 1 <= thisCount, indexStart + offset - 1, thisCount) To indexStart Step -1
+        For i = IIf(indexStart + offset - 1 <= thisLength, indexStart + offset - 1, thisLength) To indexStart Step -1
             Call .Wipe(i)
         Next i
     ElseIf offset < 0 Then
@@ -810,20 +862,20 @@ Public Sub Permute(ByVal indexList As List)
 With Me
     Call .IndexListValidate(indexList)
     
-    Dim listCount As Long
-    Let listCount = indexList.Count
+    Dim listLength As Long
+    Let listLength = indexList.Length
     
-    If listCount Then ' listCount <> 0
+    If listLength Then ' listLength <> 0
         Dim lastItem As Variant
         
-        If IsObject(Me(indexList(listCount))) Then
-            Set lastItem = Me(indexList(listCount))
+        If IsObject(Me(indexList(listLength))) Then
+            Set lastItem = Me(indexList(listLength))
         Else
-            Let lastItem = Me(indexList(listCount))
+            Let lastItem = Me(indexList(listLength))
         End If
         
         Dim i As Long
-        For i = listCount To 2 Step -1
+        For i = listLength To 2 Step -1
             Call .Copy(indexList(i), indexList(i - 1))
         Next i
         
@@ -837,17 +889,17 @@ Public Sub Swap(ByVal index1 As Long, ByVal index2 As Long)
 End Sub
 
 Public Function Sort(Optional ByVal isDescending As Boolean) As List ' Bubble sort, ascending
-With Me.Arange(1, This.theCount)
+With Me.Arange(1, This.Length)
     Dim swapped As Boolean
     Dim i As Long
     
-    Dim thisCountLessOne As Long
-    Let thisCountLessOne = This.theCount - 1
+    Dim thisLengthLessOne As Long
+    Let thisLengthLessOne = This.Length - 1
     
     If isDescending Then
         Do
             Let swapped = False
-            For i = 1 To thisCountLessOne
+            For i = 1 To thisLengthLessOne
                 If Me(i) < Me(i + 1) Then
                     Call Me.Swap(i, i + 1)
                     Call .Swap(i, i + 1)
@@ -858,7 +910,7 @@ With Me.Arange(1, This.theCount)
     Else
         Do
             Let swapped = False
-            For i = 1 To thisCountLessOne
+            For i = 1 To thisLengthLessOne
                 If Me(i) > Me(i + 1) Then
                     Call Me.Swap(i, i + 1)
                     Call .Swap(i, i + 1)
@@ -873,16 +925,16 @@ End With
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Alter the List Count
+' Operations that Alter the List Length
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub Map(ByVal indexList As List)
     Call Me.IndexListValidate(indexList)
     
     Dim newArray() As Variant
-    ReDim newArray(indexList.Count) As Variant
+    ReDim newArray(indexList.Length) As Variant
     
     Dim i As Long
-    For i = 1 To indexList.Count
+    For i = 1 To indexList.Length
         If IsObject(Me(indexList(i))) Then
             Set newArray(i) = Me(indexList(i))
         Else
@@ -891,17 +943,17 @@ Public Sub Map(ByVal indexList As List)
     Next i
     
     Let This.theArray = newArray
-    Let This.theCount = indexList.Count
+    Let This.Length = indexList.Length
 End Sub
 
 Public Function MapTo(ByVal indexList As List) As List
 With New List
     Call Me.IndexListValidate(indexList)
     
-    Call .Resize(indexList.Count)
+    Call .Resize(indexList.Length)
     
     Dim i As Long
-    For i = 1 To indexList.Count
+    For i = 1 To indexList.Length
         If IsObject(Me(indexList(i))) Then
             Set .Self(i) = Me(indexList(i))
         Else
@@ -915,26 +967,26 @@ End Function
 
 Public Sub InsertRange(ByVal lst As List, Optional ByVal index As Long = -1)
 With Me
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
     If index = -1 Then
-        Let index = thisCount ' Default value
+        Let index = thisLength ' Default value
     ElseIf index Then ' index <> 0. We include index = 0
         Call IndexValidate(index)
     End If
     
-    Dim lstCount As Long
-    Let lstCount = lst.Count
+    Dim lstLength As Long
+    Let lstLength = lst.Length
     
-    Call .Resize(thisCount + lstCount)
+    Call .Resize(thisLength + lstLength)
     
-    If lstCount > 0 Then
-        Call .Shift(lstCount, index + 1)
+    If lstLength > 0 Then
+        Call .Shift(lstLength, index + 1)
     End If
     
     Dim i As Long
-    For i = 1 To lstCount
+    For i = 1 To lstLength
         Call .LetOrSet(index + i, lst(i))
     Next i
 End With
@@ -953,21 +1005,21 @@ Public Sub Prepend(ByVal what As Variant)
 End Sub
 
 Public Sub Append(ByVal what As Variant)
-    Call Me.Insert(what, This.theCount)
+    Call Me.Insert(what, This.Length)
 End Sub
 
 Public Sub Add(ByVal what As Variant)
     Call Me.Append(what)
 End Sub
 
-Public Function RemoveRange(ByVal index As Long, ByVal theCount As Long) As Boolean
+Public Function RemoveRange(ByVal index As Long, ByVal Length As Long) As Boolean
     Call IndexValidate(index)
     
-    If index + theCount > This.theCount Then
+    If index + Length > This.Length Then
         Call Me.Resize(index - 1)
-    Else ' index + theCount <= This.theCount
-        Call Me.Shift(-theCount, index + theCount)
-        Call Me.Resize(This.theCount - theCount)
+    Else ' index + Length <= This.Length
+        Call Me.Shift(-Length, index + Length)
+        Call Me.Resize(This.Length - Length)
     End If
 End Function
 
@@ -979,7 +1031,7 @@ Public Function Pop(Optional ByVal index As Long) As Variant
     If index Then ' index <> 0
         Call IndexValidate(index)
     Else ' index = 0
-        Let index = This.theCount ' Default value
+        Let index = This.Length ' Default value
     End If
     
     If IsObject(Me(index)) Then
@@ -1002,13 +1054,13 @@ Public Function Remove(ByVal what As Variant) As Boolean
 End Function
 
 Public Function GetUniqueIndex() As List
-With List.Trues(This.theCount)
+With List.Trues(This.Length)
     Dim i As Long
     Dim j As Long
     
-    For i = 1 To This.theCount - 1
+    For i = 1 To This.Length - 1
         If .Self(i) Then
-            For j = i + 1 To This.theCount
+            For j = i + 1 To This.Length
                 If .Self(j) Then
                     If IsObject(Me(i)) And IsObject(Me(j)) Then
                         If Me(i) Is Me(j) Then Let .Self(j) = False
@@ -1033,11 +1085,11 @@ Public Sub Keep(ByVal indexList As List)
     Set indexList = Me.GetIndexListFromBoolList(boolList)
 
     Dim i As Long
-    For i = 1 To indexList.Count
+    For i = 1 To indexList.Length
         Call Me.LetOrSet(i, Me(indexList(i)))
     Next i
 
-    Call Me.Resize(indexList.Count)
+    Call Me.Resize(indexList.Length)
 End Sub
 
 Public Sub Unique()
@@ -1063,7 +1115,7 @@ With lst
     Let IsSubsetOf = True
     
     Dim i As Long
-    For i = 1 To This.theCount
+    For i = 1 To This.Length
         If Not .Contains(Me(i)) Then
             Let IsSubsetOf = False
             Exit For
@@ -1114,9 +1166,9 @@ End Function
 ' Operations among Lists
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub IntersectWith(ByVal lst As List)
-With List.Falses(This.theCount)
+With List.Falses(This.Length)
     Dim i As Long
-    For i = 1 To This.theCount
+    For i = 1 To This.Length
         If lst.Contains(Me(i)) Then
             Let .Self(i) = True
         End If
@@ -1127,9 +1179,9 @@ End With
 End Sub
 
 Public Sub DifferenceWith(ByVal lst As List)
-With List.Trues(This.theCount)
+With List.Trues(This.Length)
     Dim i As Long
-    For i = 1 To This.theCount
+    For i = 1 To This.Length
         If lst.Contains(Me(i)) Then
             Let .Self(i) = False
         End If
@@ -1200,7 +1252,7 @@ With New List
     Call .Resize(coll.NumberOf)
     
     Dim i As Long
-    For i = 1 To .Count
+    For i = 1 To .Length
         Call .LetOrSet(i, coll(i))
     Next i
     
@@ -1220,7 +1272,7 @@ Public Function FromArray(ByVal sourceArray As Variant) As List
         Let indexOffset = LBound(sourceArray) - 1
     
         Dim i As Long
-        For i = 1 To .Count
+        For i = 1 To .Length
             Call .LetOrSet(i, sourceArray(i + indexOffset))
         Next i
         
@@ -1235,8 +1287,48 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function GetRange(ByVal index As Long, ByVal theCount As Long) As List
+Public Function Clone() As List
+With New List
+    Call .Resize(This.Length)
     
+    Dim i As Long
+    For i = 1 To This.Length
+        Call .LetOrSet(i, Me(i))
+    Next i
+    
+    Set Clone = .Self
+End With
+End Function
+
+Public Function GetRange(ByVal indexStart As Long, ByVal indexLength As Long) As List
+With New List
+    If indexStart Then ' indexStart <> 0
+        Call IndexValidate(indexStart)
+    Else ' indexStart = 0
+        Let indexStart = 1 ' Default
+    End If
+    
+    Dim indexEnd As Long
+    Let indexEnd = indexStart + indexLength - 1
+        
+    If indexEnd > This.Length Then
+        Let indexEnd = This.Length
+    End If
+    
+    Dim newLength As Long
+    Let newLength = indexEnd - indexStart + 1
+    
+    If newLength > 0 Then
+        Call .Resize(newLength)
+        
+        Dim i As Long
+        For i = 1 To newLength
+            Call .LetOrSet(i, Me(i + indexStart - 1))
+        Next i
+    End If
+    
+    Set GetRange = .Self
+End With
 End Function
 
 Public Function CopyTo() As List
@@ -1244,19 +1336,19 @@ Public Function CopyTo() As List
 End Function
 
 Public Function ToArray() As Variant()
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
     Dim outputArray() As Variant
     
-    If thisCount Then ' thisCount > 0 <=> thisCount <> 0
-        ReDim outputArray(thisCount) As Variant
+    If thisLength Then ' thisLength > 0 <=> thisLength <> 0
+        ReDim outputArray(thisLength) As Variant
     Else
         Let outputArray = Array()
     End If
 
     Dim i As Long
-    For i = 1 To thisCount
+    For i = 1 To thisLength
         If IsObject(Me(i)) Then
             Set outputArray(i) = Me(i)
         Else
@@ -1272,7 +1364,7 @@ Public Function ToCollection() As Collection
     
     With ToCollection
         Dim i As Long
-        For i = 1 To This.theCount
+        For i = 1 To This.Length
             Call .Add(Me(i))
         Next i
     End With
@@ -1287,17 +1379,17 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
     Dim itemValue As String * 20
     Dim sep5 As String * 2: Let sep5 = " |"
     
-    Dim totalCount As Long
-    Let totalCount = Len(sep0) + Len(index) _
+    Dim totalLength As Long
+    Let totalLength = Len(sep0) + Len(index) _
                     + Len(sep1) + Len(itemType) _
                     + Len(sep4) + Len(itemValue) _
                     + Len(sep5)
     
     Dim topAndButtom As String
-    Let topAndButtom = String(totalCount, "=")
+    Let topAndButtom = String(totalLength, "=")
     
     Dim middle As String
-    Let middle = String(totalCount, "-")
+    Let middle = String(totalLength, "-")
     
     Debug.Print "## List Printing Start ##"
     Debug.Print topAndButtom
@@ -1313,10 +1405,10 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
     
     Debug.Print middle
     
-    Dim thisCount As Long
-    Let thisCount = This.theCount
+    Dim thisLength As Long
+    Let thisLength = This.Length
     
-    If thisCount = 0 Then
+    If thisLength = 0 Then
         RSet index = "N/A"
         RSet itemType = vbNullString
         RSet itemValue = vbNullString
@@ -1329,7 +1421,7 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
     
     Dim i As Long
     
-    For i = 1 To IIf(thisCount > head, head, thisCount)
+    For i = 1 To IIf(thisLength > head, head, thisLength)
         RSet index = i
         RSet itemType = TypeName(Me(i))
         
@@ -1345,7 +1437,7 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
                   & sep5
     Next i
     
-    If thisCount > head + tail Then
+    If thisLength > head + tail Then
         RSet index = ":"
         RSet itemType = vbNullString
         RSet itemValue = vbNullString
@@ -1356,7 +1448,7 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
                   & sep5
     End If
     
-    For i = IIf(thisCount > head + tail, thisCount - tail + 1, head + 1) To thisCount
+    For i = IIf(thisLength > head + tail, thisLength - tail + 1, head + 1) To thisLength
         RSet index = i
         RSet itemType = TypeName(Me(i))
         
@@ -1387,6 +1479,25 @@ End Sub
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Math Functions
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Floor(ByVal what As Double) As Long
+    Let Floor = Int(what)
+End Function
+
+Public Function Ceil(ByVal what As Double) As Long
+    Dim temp As Long
+    Let temp = Round(what)
+    
+    If temp >= what Then
+        Ceil = temp
+    Else
+        Ceil = temp + 1
+    End If
+End Function
+
+Public Function Round(ByVal what As Double) As Long
+
+End Function
+
 Public Function Max(ByVal lst As List) As Variant
     Dim temp As Variant
     Let temp = lst(1)
@@ -1394,7 +1505,7 @@ Public Function Max(ByVal lst As List) As Variant
     On Error GoTo NotComparable
     
     Dim i As Long
-    For i = 2 To lst.Count
+    For i = 2 To lst.Length
         If lst(i) > temp Then
             Let temp = lst(i)
         End If
@@ -1415,7 +1526,7 @@ Public Function Min(ByVal lst As List) As Variant
     On Error GoTo NotComparable
     
     Dim i As Long
-    For i = 2 To lst.Count
+    For i = 2 To lst.Length
         If lst(i) < temp Then
             Let temp = lst(i)
         End If
@@ -1431,15 +1542,18 @@ End Function
 
 Public Function Sum(ByVal lst As List) As Variant
     Dim i As Long
-    For i = 1 To lst.Count
+    For i = 1 To lst.Length
         Let Sum = Sum + lst(i)
     Next i
 End Function
 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Vector Functions
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function VecAbs(ByVal lst As List) As List
-With List.EmptyList(lst.Count)
+With List.EmptyList(lst.Length)
     Dim i As Long
-    For i = 1 To lst.Count
+    For i = 1 To lst.Length
         Let .Self(i) = Abs(lst(i))
     Next i
     
@@ -1448,9 +1562,9 @@ End With
 End Function
 
 Public Function VecPow(ByVal lst As List, ByVal p As Variant) As List
-With List.EmptyList(lst.Count)
+With List.EmptyList(lst.Length)
     Dim i As Long
-    For i = 1 To lst.Count
+    For i = 1 To lst.Length
         Let .Self(i) = lst(i) ^ p
     Next i
     
@@ -1458,25 +1572,25 @@ With List.EmptyList(lst.Count)
 End With
 End Function
 
-Public Function Norm(ByVal lst As List, Optional ByVal p As Variant = 2) As Variant
+Public Function VecNorm(ByVal lst As List, Optional ByVal p As Variant = 2) As Variant
     If p = -1 Then
-        Let Norm = Max(VecAbs(lst))
+        Let VecNorm = Max(VecAbs(lst))
     ElseIf p = 0 Then
     ElseIf p = 1 Then
-        Let Norm = Sum(VecAbs(lst))
+        Let VecNorm = Sum(VecAbs(lst))
     Else
-        Let Norm = Sum(VecPow(VecAbs(lst), p)) ^ (1 / p)
+        Let VecNorm = Sum(VecPow(VecAbs(lst), p)) ^ (1 / p)
     End If
 End Function
 
 Public Function VecSum(ByVal list1 As List, ByVal list2 As List) As List
-    If list1.Count <> list2.Count Then
+    If list1.Length <> list2.Length Then
         Call Err.Raise(1, , "Error")
     End If
     
-    With List.EmptyList(list1.Count)
+    With List.EmptyList(list1.Length)
         Dim i As Long
-        For i = 1 To list1.Count
+        For i = 1 To list1.Length
             Let .Self(i) = list1(i) + list2(i)
         Next i
         
@@ -1485,13 +1599,13 @@ Public Function VecSum(ByVal list1 As List, ByVal list2 As List) As List
 End Function
 
 Public Function VecProd(ByVal list1 As List, ByVal list2 As List) As List
-    If list1.Count <> list2.Count Then
+    If list1.Length <> list2.Length Then
         Call Err.Raise(1, , "Error")
     End If
     
-    With List.EmptyList(list1.Count)
+    With List.EmptyList(list1.Length)
         Dim i As Long
-        For i = 1 To list1.Count
+        For i = 1 To list1.Length
             Let .Self(i) = list1(i) * list2(i)
         Next i
         
@@ -1499,45 +1613,23 @@ Public Function VecProd(ByVal list1 As List, ByVal list2 As List) As List
     End With
 End Function
 
-Public Function ScalarProduct(ByVal what As Variant, ByVal lst As List) As Variant
-With List.EmptyList(lst.Count)
+Public Function ScalarProd(ByVal what As Variant, ByVal lst As List) As Variant
+With List.EmptyList(lst.Length)
     Dim i As Long
-    For i = 1 To lst.Count
+    For i = 1 To lst.Length
         Let .Self(i) = what * lst(i)
     Next i
     
-    Set ScalarProduct = .Self
+    Set ScalarProd = .Self
 End With
 End Function
 
 Public Function VecDot(ByVal list1 As List, ByVal list2 As List) As Variant
-    If list1.Count <> list2.Count Then
+    If list1.Length <> list2.Length Then
         Call Err.Raise(1, , "Error")
     End If
     
     Let VecDot = List.Sum(VecProd(list1, list2))
-End Function
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Math Helper Functions
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function Floor(ByVal what As Double) As Long
-    Let Floor = Int(what)
-End Function
-
-Public Function Ceil(ByVal what As Double) As Long
-    Dim temp As Long
-    Let temp = Round(what)
-    
-    If temp >= what Then
-        Ceil = temp
-    Else
-        Ceil = temp + 1
-    End If
-End Function
-
-Public Function Round(ByVal what As Double) As Long
-
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
