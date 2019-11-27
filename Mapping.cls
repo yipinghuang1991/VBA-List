@@ -19,11 +19,8 @@ Option Base 1
 '
 ' Class_Initialize
 ' Self
-' Keys
-' Values
 ' Capacity
 ' Count
-' Clone
 '
 ' IndexOfKey -> Item (Default Member) -> LetOrSet
 '
@@ -33,7 +30,9 @@ Option Base 1
 '
 ' ## Information ##
 '
-' (IndexOfKey) -> ContainsKey -> Contains
+' (IndexOfKey) -> ContainsKey ---> Exists
+'                              |-> Contains
+'
 ' IndexOfValue -> ContainsValue
 '
 ' ## Operations that Preserve the Number of Items ##
@@ -45,7 +44,7 @@ Option Base 1
 '
 ' ## Operations that Alter the Number of Items ##
 '
-' Clear
+' Clear ---------> RemoveAll
 ' (ContainsKey) -> Add
 ' RemoveAt ------> Remove
 '
@@ -59,6 +58,9 @@ Option Base 1
 ' CopyTo
 ' GetKeyList
 ' GetValueList
+' Keys
+' Values -> Items
+' ToCollection
 ' ToImmediate ---> ToImmediateHead
 '              |-> ToImmediateTail
 
@@ -75,14 +77,6 @@ End Sub
 
 Public Property Get Self() As Mapping
     Set Self = Me
-End Property
-
-Public Property Get Keys() As List
-    Set Keys = keyList
-End Property
-
-Public Property Get Values() As List
-    Set Values = valueList
 End Property
 
 Public Property Get Capacity() As Long
@@ -186,6 +180,10 @@ Public Function ContainsKey(ByVal key As Variant) As Boolean
     Let ContainsKey = Me.IndexOfKey(key)
 End Function
 
+Public Function Exists(ByVal key As Variant) As Boolean ' Dictionary compatible
+    Let Exists = Me.ContainsKey(key)
+End Function
+
 Public Function Contains(ByVal key As Variant) As Boolean
     Let Contains = Me.ContainsKey(key)
 End Function
@@ -202,7 +200,8 @@ End Function
 ' Operations that Preserve the List Length
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub TrimToSize()
-    
+    Call keyList.TrimToSize
+    Call valueList.TrimToSize
 End Sub
 
 Public Sub Reverse()
@@ -230,6 +229,10 @@ Public Sub Clear()
     Call valueList.Clear
 End Sub
 
+Public Sub RemoveAll() ' Dictionary compatible
+    Call Me.Clear
+End Sub
+
 Public Sub Add(ByVal key As Variant, ByVal value As Variant, Optional ByVal index As Long = -1)
     If Me.ContainsKey(key) Then
         Call Err.Raise(1, , "Key existed.")
@@ -244,7 +247,7 @@ Public Sub RemoveAt(ByVal index As Long)
     Call valueList.RemoveAt(index)
 End Sub
 
-Public Sub Remove(ByVal key As Variant)
+Public Sub Remove(ByVal key As Variant) ' Dictionary compatible
     Dim index As Long
     Let index = Me.IndexOfKey(key)
     
@@ -295,6 +298,18 @@ End Function
 
 Public Function GetValueList() As List
     Set GetValueList = valueList.Clone
+End Function
+
+Public Function Keys(Optional ByVal base As Long) As Variant() ' Dictionary compatible
+    Set Keys = keyList.ToArray(base)
+End Function
+
+Public Function Values(Optional ByVal base As Long) As Variant()
+    Set Values = valueList.ToArray(base)
+End Function
+
+Public Function Items(Optional ByVal base As Long) As Variant() ' Dictionary compatible
+    Let Items = Me.Values(base)
 End Function
 
 Public Function ToCollection() As Collection

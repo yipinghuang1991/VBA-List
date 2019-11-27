@@ -137,6 +137,15 @@ Option Base 1
 ' ToImmediate ---> ToImmediateHead
 '              |-> ToImmediateTail
 '
+' ## Array Helper Functions ##
+'
+' ArrayDimension -> ArrayLen -> IsArrayEmpty
+'
+' ## Type Helper Functions ##
+'
+' IsNumberType
+' IsIntegerType
+'
 ' ## Math Functions ##
 '
 ' Floor
@@ -155,15 +164,6 @@ Option Base 1
 ' VecProd
 ' ScalarProd
 ' VecDot
-'
-' ## Type Helper Functions
-'
-' IsNumberType
-' IsIntegerType
-'
-' ## Array Helper Functions
-'
-' ArrayDimension -> ArrayLen -> IsArrayEmpty
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Implementation
@@ -1335,24 +1335,27 @@ Public Function CopyTo() As List
     
 End Function
 
-Public Function ToArray() As Variant()
+Public Function ToArray(Optional ByVal base As Long = 1) As Variant()
+    Dim offset As Long
+    Let offset = 1 - base
+    
     Dim thisLength As Long
     Let thisLength = This.Length
     
     Dim outputArray() As Variant
     
     If thisLength Then ' thisLength > 0 <=> thisLength <> 0
-        ReDim outputArray(thisLength) As Variant
+        ReDim outputArray(base To thisLength - offset) As Variant
     Else
         Let outputArray = Array()
     End If
-
+    
     Dim i As Long
     For i = 1 To thisLength
         If IsObject(Me(i)) Then
-            Set outputArray(i) = Me(i)
+            Set outputArray(i - offset) = Me(i)
         Else
-            Let outputArray(i) = Me(i)
+            Let outputArray(i - offset) = Me(i)
         End If
     Next i
 
@@ -1475,6 +1478,90 @@ End Sub
 Public Sub ToImmediateTail(Optional ByVal tail As Long = 50)
     Call Me.ToImmediate(0, tail)
 End Sub
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Array Helper Functions
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function ArrayDimension(ByRef arr As Variant) As Long
+    ' Uninitialized arrays and arrays with no element both return 0.
+    If Not IsArray(arr) Then
+        Call Err.Raise(1, , "Input not an array.")
+    End If
+    
+    ' Uninitialized arrays and erased arrays cause error
+    On Error GoTo Done
+    
+    Dim tmp As Long
+    Dim i As Long
+    
+    Do While True
+        Let i = i + 1
+        Let tmp = UBound(arr, i)
+    Loop
+    
+Done:
+    Let ArrayDimension = i - 1
+End Function
+
+Public Function ArrayLen(ByRef arr As Variant, _
+                         Optional ByVal dimension As Long = 1) As Long
+    If Not dimension > 0 Then
+        Call Err.Raise(1, , "Dimension should be positive.")
+    End If
+    
+    Dim arrayDim As Long
+    Let arrayDim = ArrayDimension(arr)
+    
+    If arrayDim Then ' arrayDim > 0 <=> arrayDim <> 0
+        Let ArrayLen = UBound(arr, dimension) - LBound(arr, dimension) + 1
+    'ElseIf arrayDim = 0
+    End If
+End Function
+
+Public Function IsArrayEmpty(ByRef arr As Variant) As Boolean
+    If ArrayLen(arr) = 0 Then
+        Let IsArrayEmpty = True
+    End If
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Type Helper Functions
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function IsNumberType(ByRef what As Variant) As Boolean
+    Dim typeOfWhat As Long
+    Let typeOfWhat = VarType(what)
+    
+    If typeOfWhat = 3 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 4 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 5 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 20 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 2 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 17 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 14 Then
+        Let IsNumberType = True
+    End If
+End Function
+
+Public Function IsIntegerType(ByRef what As Variant) As Boolean
+    Dim typeOfWhat As Long
+    Let typeOfWhat = VarType(what)
+    
+    If typeOfWhat = 3 Then
+        Let IsIntegerType = True
+    ElseIf typeOfWhat = 20 Then
+        Let IsIntegerType = True
+    ElseIf typeOfWhat = 2 Then
+        Let IsIntegerType = True
+    ElseIf typeOfWhat = 17 Then
+        Let IsIntegerType = True
+    End If
+End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Math Functions
@@ -1632,86 +1719,3 @@ Public Function VecDot(ByVal list1 As List, ByVal list2 As List) As Variant
     Let VecDot = List.Sum(VecProd(list1, list2))
 End Function
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Type Helper Functions
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function IsNumberType(ByRef what As Variant) As Boolean
-    Dim typeOfWhat As Long
-    Let typeOfWhat = VarType(what)
-    
-    If typeOfWhat = 3 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 4 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 5 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 20 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 2 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 17 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 14 Then
-        Let IsNumberType = True
-    End If
-End Function
-
-Public Function IsIntegerType(ByRef what As Variant) As Boolean
-    Dim typeOfWhat As Long
-    Let typeOfWhat = VarType(what)
-    
-    If typeOfWhat = 3 Then
-        Let IsIntegerType = True
-    ElseIf typeOfWhat = 20 Then
-        Let IsIntegerType = True
-    ElseIf typeOfWhat = 2 Then
-        Let IsIntegerType = True
-    ElseIf typeOfWhat = 17 Then
-        Let IsIntegerType = True
-    End If
-End Function
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Array Helper Functions
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function ArrayDimension(ByRef arr As Variant) As Long
-    ' Uninitialized arrays and arrays with no element both return 0.
-    If Not IsArray(arr) Then
-        Call Err.Raise(1, , "Input not an array.")
-    End If
-    
-    ' Uninitialized arrays and erased arrays cause error
-    On Error GoTo Done
-    
-    Dim tmp As Long
-    Dim i As Long
-    
-    Do While True
-        Let i = i + 1
-        Let tmp = UBound(arr, i)
-    Loop
-    
-Done:
-    Let ArrayDimension = i - 1
-End Function
-
-Public Function ArrayLen(ByRef arr As Variant, _
-                         Optional ByVal dimension As Long = 1) As Long
-    If Not dimension > 0 Then
-        Call Err.Raise(1, , "Dimension should be positive.")
-    End If
-    
-    Dim arrayDim As Long
-    Let arrayDim = ArrayDimension(arr)
-    
-    If arrayDim Then ' arrayDim > 0 <=> arrayDim <> 0
-        Let ArrayLen = UBound(arr, dimension) - LBound(arr, dimension) + 1
-    'ElseIf arrayDim = 0
-    End If
-End Function
-
-Public Function IsArrayEmpty(ByRef arr As Variant) As Boolean
-    If ArrayLen(arr) = 0 Then
-        Let IsArrayEmpty = True
-    End If
-End Function
