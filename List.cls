@@ -22,9 +22,8 @@ Option Base 1
 ' Self
 ' Capacity
 ' Count
-'
-' Resize -> Clone
-'
+' TrimToSize
+' Resize -------> Clone
 ' IsIndexValid -> IndexValidate -> Item (Default Member) -> LetOrSet
 '
 ' ## Generators ##
@@ -41,22 +40,22 @@ Option Base 1
 '                          |-> GeomSpace
 ' ## Information ##
 '
-' (IndexValidate) -> IndexOf ---------> Contains
-'                                   |-> NumberOf
-'                                   --> IndexOfEach <-(Add)
-' (IsNumberType) --> IsNumberList
-'
-' (IsIntegerType) -> IsIntegerList
-'                       |v
-' (IsIndexValid) --> IsIndexList -----> IndexListValidate -----> GetBoolListFromIndexList <-(Falses)
-'
-' (IsBoolList) ----> IsBoolIndexList -> BoolIndexListValidate -> GetIndexListFromBoolList <-(Add)
+' (IndexValidate) ---> LastIndexOf
+'                  |-> IndexOf ---------> Contains
+'                                     |-> NumberOf
+'                                     --> IndexOfEach <-(Add)
+' (IsNumberType) ----> IsNumberList
+' (IsIntegerType) ---> IsIntegerList
+'                         |v
+' (IsIndexValid) ----> IsIndexList -----> IndexListValidate -----> GetBoolListFromIndexList <-(Falses)
+' (IsBoolList) ------> IsBoolIndexList -> BoolIndexListValidate -> GetIndexListFromBoolList <-(Add)
 '
 ' ## Operations that Preserves the List Count ##
 '
 ' AsType
 ' Invert
 ' Reverse
+' SetRange
 '
 ' Wipe --------  |-> Move
 '             |--|
@@ -71,13 +70,12 @@ Option Base 1
 ' (IndexListValidate) ---> Map
 '                      |-> MapTo
 '
-'                      |-> Extend -----> Insert ---> Prepend
-' (IndexValidate) ---  |                         |
-'                   |--|                         --> Append -> Add
+'                      |-> InsertRange ---> AddRange
+' (IndexValidate) ---  |                |-> Insert -----> Prepend
+'                   |--|                              |-> Append -> Add
 ' (Shift) -----------  |
-'                      |-> RemoveAt ---> Pop <-(IndexValidate)
-'                                    |
-'                                    --> Remove <-(IndexOf)
+'                      |-> RemoveRange ---> RemoveAt ---> Pop <-(IndexValidate)
+'                                                     |-> Remove <-(IndexOf)
 '
 ' (Trues) ------------------------------|
 '                                       V
@@ -97,7 +95,7 @@ Option Base 1
 ' (Contains) -> IsSubsetOf -> IsSupersetOf -> IsEqualTo ---> IsProperSubsetOf
 '                  |             |                       |-> IsProperSubsetOf
 '                  |             |                              ^
-'                  |             |------------------------------|
+'                  |             -------------------------------|
 '                  |
 '                  |  |------------------------------------------
 '                  |  |--------------------------|              |
@@ -115,12 +113,12 @@ Option Base 1
 '                             |  |                        V                         V
 ' (Keep) ----------------------  |-> DifferenceWith -> Difference -> UnionWith -> Union
 '                                                                       ^
-' (Extend) -------------------------------------------------------------|
+' (InsertRange) --------------------------------------------------------|
 '
 ' ## Constructors ##
 '
-' Clone --|
-' Extend ---> Concatenate
+' Clone -------|
+' InsertRange ---> Concatenate
 '
 ' FromEnumerable
 ' FromCollection
@@ -175,13 +173,17 @@ Public Property Get Capacity() As Long
     Let Capacity = This.allocated
 End Property
 
-Public Property Set Capacity(ByVal newCapacity As Long)
-    Let This.allocated = newCapacity
-End Property
-
 Public Property Get Count() As Long
     Let Count = This.theCount
 End Property
+
+Public Sub TrimToSize()
+    Dim newArray() As Variant
+    Let newArray = Me.ToArray()
+    
+    Let This.theArray = newArray
+    Let This.allocated = This.theCount
+End Sub
 
 Public Sub Resize(ByVal newCount As Long)
 With This
@@ -204,10 +206,6 @@ With This
 End With
 End Sub
 
-Public Sub TrimToSize()
-    
-End Sub
-
 Public Function Clone() As List
 With New List
     Call .Resize(This.theCount)
@@ -215,11 +213,6 @@ With New List
     Dim i As Long
     For i = 1 To This.theCount
         Call .LetOrSet(i, Me(i))
-'        If IsObject(Me(i)) Then
-'            Set .Self(i) = Me(i)
-'        Else
-'            Let .Self(i) = Me(i)
-'        End If
     Next i
     
     Set Clone = .Self
@@ -410,19 +403,69 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Information
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function LastIndexOf(ByVal what As Variant, _
+                            Optional ByVal indexStart As Long, _
+                            Optional ByVal indexCount As Long = -1) As Long ' Default to 0
+    If indexStart Then ' indexStart <> 0
+        Call IndexValidate(indexStart)
+    Else ' indexStart = 0
+        Let indexStart = This.theCount ' Default
+    End If
+    
+    Dim indexEnd As Long
+    
+    If indexCount = -1 Then
+        Let indexEnd = 1
+    Else
+        Let indexEnd = indexStart - indexCount + 1
+        
+        If indexEnd < 1 Then
+            Let indexEnd = 1
+        End If
+    End If
+    
+    Dim i As Long
+    
+    If IsObject(what) Then
+        For i = indexStart To indexEnd Step -1
+            If IsObject(Me(i)) Then
+                If Me(i) Is what Then
+                    Let LastIndexOf = i
+                    Exit For
+                End If
+            End If
+        Next i
+    Else
+        For i = indexStart To indexEnd Step -1
+            If Not IsObject(Me(i)) Then
+                If Me(i) = what Then
+                    Let LastIndexOf = i
+                    Exit For
+                End If
+            End If
+        Next i
+    End If
+End Function
+
 Public Function IndexOf(ByVal what As Variant, _
                         Optional ByVal indexStart As Long, _
-                        Optional ByVal indexEnd As Long) As Long ' Default to 0
+                        Optional ByVal indexCount As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
         Call IndexValidate(indexStart)
     Else ' indexStart = 0
         Let indexStart = 1 ' Default
     End If
     
-    If indexEnd Then ' indexEnd <> 0
-        Call IndexValidate(indexEnd)
-    Else ' indexEnd = 0
-        Let indexEnd = This.theCount ' Default
+    Dim indexEnd As Long
+    
+    If indexCount = -1 Then
+        Let indexEnd = This.theCount
+    Else
+        Let indexEnd = indexStart + indexCount - 1
+        
+        If indexEnd > This.theCount Then
+            Let indexEnd = This.theCount
+        End If
     End If
     
     Dim i As Long
@@ -446,12 +489,6 @@ Public Function IndexOf(ByVal what As Variant, _
             End If
         Next i
     End If
-End Function
-
-Public Function LastIndexOf(ByVal what As Variant, _
-                            Optional ByVal indexStart As Long, _
-                            Optional ByVal indexEnd As Long) As Long ' Default to 0
-
 End Function
 
 Public Function Contains(ByVal what As Variant) As Boolean
@@ -685,6 +722,17 @@ Public Sub Reverse()
     End If
 End Sub
 
+Public Sub SetRange(ByVal index As Long, ByVal lst As List)
+    If index + lst.Count - 1 > This.theCount Then
+        Call Err.Raise(1, , "Error")
+    End If
+    
+    Dim i As Long
+    For i = index To index + lst.Count - 1
+        Call Me.LetOrSet(i, lst(i - index + 1))
+    Next i
+End Sub
+
 Public Sub Wipe(Optional ByVal index As Long)
     If index Then ' index <> 0
         Let Me(index) = Empty
@@ -701,11 +749,6 @@ End Sub
 Public Sub Copy(ByVal index As Long, ByVal indexFrom As Long)
     If index <> indexFrom Then
         Call LetOrSet(index, Me(indexFrom))
-'        If IsObject(Me(indexFrom)) Then
-'            Set Me(index) = Me(indexFrom)
-'        Else
-'            Let Me(index) = Me(indexFrom)
-'        End If
     End If
 End Sub
 
@@ -717,7 +760,8 @@ Public Sub Move(ByVal index As Long, ByVal indexFrom As Long)
 End Sub
 
 Public Sub Shift(ByVal offset As Long, _
-                 Optional ByVal indexStart As Long, Optional ByVal indexEnd As Long)
+                 Optional ByVal indexStart As Long, _
+                 Optional ByVal indexCount As Long = -1)
 With Me
     Dim thisCount As Long
     Let thisCount = This.theCount
@@ -728,10 +772,16 @@ With Me
         Let indexStart = 1 ' Default
     End If
     
-    If indexEnd Then ' indexEnd <> 0
-        Call IndexValidate(indexEnd)
-    Else ' indexEnd = 0
-        Let indexEnd = thisCount ' Default
+    Dim indexEnd As Long
+    
+    If indexCount = -1 Then
+        Let indexEnd = This.theCount
+    Else
+        Let indexEnd = indexStart + indexCount - 1
+        
+        If indexEnd > This.theCount Then
+            Let indexEnd = This.theCount
+        End If
     End If
     
     Dim i As Long
@@ -741,7 +791,7 @@ With Me
             Call .Copy(i, i - offset)
         Next i
         
-        For i = indexStart + offset - 1 To indexStart Step -1
+        For i = IIf(indexStart + offset - 1 <= thisCount, indexStart + offset - 1, thisCount) To indexStart Step -1
             Call .Wipe(i)
         Next i
     ElseIf offset < 0 Then
@@ -749,7 +799,7 @@ With Me
             Call .Copy(i, i - offset)
         Next i
         
-        For i = indexEnd + offset + 1 To indexEnd
+        For i = IIf(indexEnd + offset + 1 > 0, indexEnd + offset + 1, 1) To indexEnd
             Call .Wipe(i)
         Next i
     End If
@@ -778,11 +828,6 @@ With Me
         Next i
         
         Call .LetOrSet(indexList(1), lastItem)
-'        If isLastItemObject Then
-'            Set Me(indexList(1)) = lastItem
-'        Else
-'            Let Me(indexList(1)) = lastItem
-'        End If
     End If
 End With
 End Sub
@@ -791,7 +836,7 @@ Public Sub Swap(ByVal index1 As Long, ByVal index2 As Long)
     Call Me.Permute(List.FromArguments(index1, index2))
 End Sub
 
-Public Function Sort() As List ' Bubble sort, ascending
+Public Function Sort(Optional ByVal isDescending As Boolean) As List ' Bubble sort, ascending
 With Me.Arange(1, This.theCount)
     Dim swapped As Boolean
     Dim i As Long
@@ -799,16 +844,29 @@ With Me.Arange(1, This.theCount)
     Dim thisCountLessOne As Long
     Let thisCountLessOne = This.theCount - 1
     
-    Do
-        Let swapped = False
-        For i = 1 To thisCountLessOne
-            If Me(i) > Me(i + 1) Then
-                Call Me.Swap(i, i + 1)
-                Call .Swap(i, i + 1)
-                Let swapped = True
-            End If
-        Next i
-    Loop While swapped
+    If isDescending Then
+        Do
+            Let swapped = False
+            For i = 1 To thisCountLessOne
+                If Me(i) < Me(i + 1) Then
+                    Call Me.Swap(i, i + 1)
+                    Call .Swap(i, i + 1)
+                    Let swapped = True
+                End If
+            Next i
+        Loop While swapped
+    Else
+        Do
+            Let swapped = False
+            For i = 1 To thisCountLessOne
+                If Me(i) > Me(i + 1) Then
+                    Call Me.Swap(i, i + 1)
+                    Call .Swap(i, i + 1)
+                    Let swapped = True
+                End If
+            Next i
+        Loop While swapped
+    End If
     
     Set Sort = .Self
 End With
@@ -855,43 +913,39 @@ With New List
 End With
 End Function
 
-Public Sub Extend(ByVal lst As List, Optional ByVal index As Long = -1)
+Public Sub InsertRange(ByVal lst As List, Optional ByVal index As Long = -1)
 With Me
     Dim thisCount As Long
     Let thisCount = This.theCount
     
     If index = -1 Then
-        Let index = This.theCount ' Default value
+        Let index = thisCount ' Default value
     ElseIf index Then ' index <> 0. We include index = 0
         Call IndexValidate(index)
     End If
     
-    Dim listCount As Long
-    Let listCount = lst.Count
+    Dim lstCount As Long
+    Let lstCount = lst.Count
     
-    Call .Resize(thisCount + listCount)
+    Call .Resize(thisCount + lstCount)
     
-    If listCount > 0 Then
-        Call .Shift(listCount, index + 1)
+    If lstCount > 0 Then
+        Call .Shift(lstCount, index + 1)
     End If
     
     Dim i As Long
-    For i = 1 To listCount
+    For i = 1 To lstCount
         Call .LetOrSet(index + i, lst(i))
     Next i
 End With
 End Sub
 
 Public Sub AddRange(ByVal lst As List)
-    Call Me.Extend(lst)
-End Sub
-
-Public Sub InsertRange(ByVal pos As Long, ByVal lst As List)
-    Call Me.Extend(lst, pos)
+    Call Me.InsertRange(lst)
 End Sub
 
 Public Sub Insert(ByVal what As Variant, Optional ByVal index As Long = -1)
-    Call Me.Extend(List.FromArguments(what), index)
+    Call Me.InsertRange(List.FromArguments(what), index)
 End Sub
 
 Public Sub Prepend(ByVal what As Variant)
@@ -906,14 +960,19 @@ Public Sub Add(ByVal what As Variant)
     Call Me.Append(what)
 End Sub
 
-Public Sub RemoveAt(ByVal index As Long)
+Public Function RemoveRange(ByVal index As Long, ByVal theCount As Long) As Boolean
     Call IndexValidate(index)
     
-    If index < This.theCount Then
-        Call Me.Shift(-1, index + 1)
+    If index + theCount > This.theCount Then
+        Call Me.Resize(index - 1)
+    Else ' index + theCount <= This.theCount
+        Call Me.Shift(-theCount, index + theCount)
+        Call Me.Resize(This.theCount - theCount)
     End If
-    
-    Call Me.Resize(This.theCount - 1)
+End Function
+
+Public Sub RemoveAt(ByVal index As Long)
+    Call RemoveRange(index, 1)
 End Sub
 
 Public Function Pop(Optional ByVal index As Long) As Variant
@@ -1081,7 +1140,7 @@ End With
 End Sub
 
 Public Sub UnionWith(ByVal lst As List)
-    Call Me.Extend(List.Difference(lst, Me))
+    Call Me.InsertRange(List.Difference(lst, Me))
 End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -1113,7 +1172,7 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function Concatenate(ByVal listL As List, ByVal listR As List) As List
 With listL.Clone
-    Call .Extend(listR)
+    Call .InsertRange(listR)
     Set Concatenate = .Self
 End With
 End Function
@@ -1138,16 +1197,11 @@ End Function
 
 Public Function FromCollection(ByRef coll As Collection) As List
 With New List
-    Call .Resize(coll.Count)
+    Call .Resize(coll.NumberOf)
     
     Dim i As Long
     For i = 1 To .Count
         Call .LetOrSet(i, coll(i))
-'        If IsObject(coll(i)) Then
-'            Set .Self(i) = coll(i)
-'        Else
-'            Let .Self(i) = coll(i)
-'        End If
     Next i
     
     Set FromCollection = .Self
@@ -1168,11 +1222,6 @@ Public Function FromArray(ByVal sourceArray As Variant) As List
         Dim i As Long
         For i = 1 To .Count
             Call .LetOrSet(i, sourceArray(i + indexOffset))
-'            If IsObject(sourceArray(i + indexOffset)) Then
-'                Set .Self(i) = sourceArray(i + indexOffset)
-'            Else
-'                Let .Self(i) = sourceArray(i + indexOffset)
-'            End If
         Next i
         
         Set FromArray = .Self
@@ -1186,13 +1235,13 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function GetRange(ByVal indexStart As Long, ByVal indexEnd As Long)
-
+Public Function GetRange(ByVal index As Long, ByVal theCount As Long) As List
+    
 End Function
 
-Public Sub CopyTo()
-
-End Sub
+Public Function CopyTo() As List
+    
+End Function
 
 Public Function ToArray() As Variant()
     Dim thisCount As Long
@@ -1494,21 +1543,6 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Type Helper Functions
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function IsIntegerType(ByRef what As Variant) As Boolean
-    Dim typeOfWhat As Long
-    Let typeOfWhat = VarType(what)
-    
-    If typeOfWhat = 3 Then
-        Let IsIntegerType = True
-    ElseIf typeOfWhat = 20 Then
-        Let IsIntegerType = True
-    ElseIf typeOfWhat = 2 Then
-        Let IsIntegerType = True
-    ElseIf typeOfWhat = 17 Then
-        Let IsIntegerType = True
-    End If
-End Function
-
 Public Function IsNumberType(ByRef what As Variant) As Boolean
     Dim typeOfWhat As Long
     Let typeOfWhat = VarType(what)
@@ -1527,6 +1561,21 @@ Public Function IsNumberType(ByRef what As Variant) As Boolean
         Let IsNumberType = True
     ElseIf typeOfWhat = 14 Then
         Let IsNumberType = True
+    End If
+End Function
+
+Public Function IsIntegerType(ByRef what As Variant) As Boolean
+    Dim typeOfWhat As Long
+    Let typeOfWhat = VarType(what)
+    
+    If typeOfWhat = 3 Then
+        Let IsIntegerType = True
+    ElseIf typeOfWhat = 20 Then
+        Let IsIntegerType = True
+    ElseIf typeOfWhat = 2 Then
+        Let IsIntegerType = True
+    ElseIf typeOfWhat = 17 Then
+        Let IsIntegerType = True
     End If
 End Function
 

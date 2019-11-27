@@ -19,6 +19,8 @@ Option Base 1
 '
 ' Class_Initialize
 ' Self
+' Keys
+' Values
 ' Capacity
 ' Count
 ' Clone
@@ -36,6 +38,7 @@ Option Base 1
 '
 ' ## Operations that Preserve the Number of Items ##
 '
+' TrimToSize
 ' Reverse
 ' SortByValue
 ' SortByKey -> Sort
@@ -53,8 +56,9 @@ Option Base 1
 '
 ' ## Output ##
 '
-' GetKeyList ----> Keys
-' GetValueList --> Values
+' CopyTo
+' GetKeyList
+' GetValueList
 ' ToImmediate ---> ToImmediateHead
 '              |-> ToImmediateTail
 
@@ -71,6 +75,14 @@ End Sub
 
 Public Property Get Self() As Mapping
     Set Self = Me
+End Property
+
+Public Property Get Keys() As List
+    Set Keys = keyList
+End Property
+
+Public Property Get Values() As List
+    Set Values = valueList
 End Property
 
 Public Property Get Capacity() As Long
@@ -187,27 +199,31 @@ Public Function ContainsValue(ByVal value As Variant) As Boolean
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Preserve the List Count
+' Operations that Preserve the List Length
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Sub TrimToSize()
+    
+End Sub
+
 Public Sub Reverse()
     Call keyList.Reverse
     Call valueList.Reverse
 End Sub
 
-Public Sub SortByValue()
-    Call keyList.Map(valueList.Sort())
+Public Sub SortByValue(Optional ByVal isDescending As Boolean)
+    Call keyList.Map(valueList.Sort(isDescending))
 End Sub
 
-Public Sub SortByKey()
-    Call valueList.Map(keyList.Sort())
+Public Sub SortByKey(Optional ByVal isDescending As Boolean)
+    Call valueList.Map(keyList.Sort(isDescending))
 End Sub
 
-Public Sub Sort()
-    Call Me.SortByKey
+Public Sub Sort(Optional ByVal isDescending As Boolean)
+    Call Me.SortByKey(isDescending)
 End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Alter the List Count
+' Operations that Alter the List Length
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub Clear()
     Call keyList.Clear
@@ -269,20 +285,16 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function CopyTo() As List
+    
+End Function
+
 Public Function GetKeyList() As List
     Set GetKeyList = keyList.Clone
 End Function
 
-Public Function Keys() As List
-    Set Keys = Me.GetKeyList
-End Function
-
 Public Function GetValueList() As List
     Set GetValueList = valueList.Clone
-End Function
-
-Public Function Values() As List
-    Set Values = Me.GetValueList
 End Function
 
 Public Function ToCollection() As Collection
@@ -302,8 +314,8 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
     Dim itemValue As String * 12
     Dim sep5 As String * 2: Let sep5 = " |"
     
-    Dim totalCount As Long
-    Let totalCount = Len(sep0) + Len(index) _
+    Dim totalLength As Long
+    Let totalLength = Len(sep0) + Len(index) _
                     + Len(sep1) + Len(keyType) _
                     + Len(sep2) + Len(keyValue) _
                     + Len(sep3) + Len(itemType) _
@@ -311,10 +323,10 @@ Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As 
                     + Len(sep5)
     
     Dim topAndButtom As String
-    Let topAndButtom = String(totalCount, "=")
+    Let topAndButtom = String(totalLength, "=")
     
     Dim middle As String
-    Let middle = String(totalCount, "-")
+    Let middle = String(totalLength, "-")
     
     Debug.Print "## Mapping Printing Start ##"
     
