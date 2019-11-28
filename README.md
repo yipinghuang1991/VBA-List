@@ -17,6 +17,7 @@ VBA List type to fit the IT requirement at work.
 
 - [x] List
 - [x] Mapping
+- [x] Dictionary, same as mapping, a drop-in replacement for `Dictionary`
 - [ ] Matrix
 - [ ] Table
 
