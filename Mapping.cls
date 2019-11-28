@@ -8,9 +8,7 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 '@Folder("Type")
-
 Option Explicit
-Option Base 1
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Dependency Graphs
@@ -22,45 +20,41 @@ Option Base 1
 ' Capacity
 ' Count
 '
-' IndexOfKey -> Item (Default Member) -> LetOrSet
+' IndexOfValue -> ContainsValue
+'
+' IndexOfKey ---> ContainsKey = Contains = Exists
+'       |                |----> Add -----> Item -> LetOrSet
+'       |                        ^
+'       |------------------------|
+'       |-------> Key
+'       |-------> Remove
+'                   ^
+' RemoveAt ---------|
+'
+' Clear --------> RemoveAll
 '
 ' GetKey -----|
 ' GetByIndex ---> Clone
+'
 ' SetByIndex
-'
-' ## Information ##
-'
-' (IndexOfKey) -> ContainsKey ---> Exists
-'                              |-> Contains
-'
-' IndexOfValue -> ContainsValue
-'
-' ## Operations that Preserve the Number of Items ##
-'
 ' TrimToSize
 ' Reverse
 ' SortByValue
-' SortByKey -> Sort
-'
-' ## Operations that Alter the Number of Items ##
-'
-' Clear ---------> RemoveAll
-' (ContainsKey) -> Add
-' RemoveAt ------> Remove
+' SortByKey ----> Sort
 '
 ' ## Constructors ##
 '
-' FromCollection
+' FromCollection (Pending)
 ' FromLists
 '
 ' ## Output ##
 '
-' CopyTo
+' CopyTo (Pending)
+' Keys
+' Values = Items
 ' GetKeyList
 ' GetValueList
-' Keys
-' Values -> Items
-' ToCollection
+' ToCollection (Pending)
 ' ToImmediate ---> ToImmediateHead
 '              |-> ToImmediateTail
 
@@ -83,19 +77,51 @@ Public Property Get Capacity() As Long
     Let Capacity = keyList.Capacity
 End Property
 
+' Dictionary compatible
 Public Property Get Count() As Long
     Let Count = keyList.Count
 End Property
 
-Public Function IndexOfKey(ByVal key As Variant) As Long
-    Let IndexOfKey = keyList.IndexOf(key)
+Public Function IndexOfValue(ByVal value As Variant) As Long
+    Let IndexOfValue = valueList.IndexOf(value)
 End Function
 
+Public Function ContainsValue(ByVal value As Variant) As Boolean
+    Let ContainsValue = Me.IndexOfValue(value)
+End Function
+
+Public Function IndexOfKey(ByVal Key As Variant) As Long
+    Let IndexOfKey = keyList.IndexOf(Key)
+End Function
+
+Public Function ContainsKey(ByVal Key As Variant) As Boolean
+    Let ContainsKey = Me.IndexOfKey(Key)
+End Function
+
+Public Function Contains(ByVal Key As Variant) As Boolean
+    Let Contains = Me.IndexOfKey(Key)
+End Function
+
+' Dictionary compatible
+Public Function Exists(ByVal Key As Variant) As Boolean
+    Let Exists = Me.IndexOfKey(Key)
+End Function
+
+Public Sub Add(ByVal Key As Variant, ByVal value As Variant, Optional ByVal index As Long = -1)
+    If Me.ContainsKey(Key) Then
+        Call Err.Raise(457)
+    Else
+        Call keyList.Insert(Key, index)
+        Call valueList.Insert(value, index)
+    End If
+End Sub
+
+' Dictionary compatible
 '@DefaultMember
-Public Property Get Item(ByVal key As Variant) As Variant
+Public Property Get Item(ByVal Key As Variant) As Variant
 Attribute Item.VB_UserMemId = 0
     Dim index As Long
-    Let index = Me.IndexOfKey(key)
+    Let index = Me.IndexOfKey(Key)
     
     If index Then ' index <> 0, i.e., index > 0
         If IsObject(valueList(index)) Then
@@ -104,38 +130,118 @@ Attribute Item.VB_UserMemId = 0
             Let Item = valueList(index)
         End If
     Else
-        Call Err.Raise(1, , "Key " & key & " does not exist.")
+        Call Me.Add(Key, Empty)
     End If
 End Property
 
-Public Property Let Item(ByVal key As Variant, ByVal what As Variant)
+' Dictionary compatible
+Public Property Let Item(ByVal Key As Variant, ByVal what As Variant)
+    If IsObject(what) Then
+        Call Err.Raise(450)
+    End If
+    
     Dim index As Long
-    Let index = Me.IndexOfKey(key)
+    Let index = Me.IndexOfKey(Key)
     
     If index Then ' index <> 0, i.e., index > 0
         Let valueList(index) = what
     Else
-        Call Err.Raise(1, , "Key " & key & " does not exist.")
+        Call Me.Add(Key, what)
     End If
 End Property
 
-Public Property Set Item(ByVal key As Variant, ByVal what As Variant)
+' Dictionary compatible
+Public Property Set Item(ByVal Key As Variant, ByVal what As Object)
     Dim index As Long
-    Let index = Me.IndexOfKey(key)
+    Let index = Me.IndexOfKey(Key)
     
     If index Then ' index <> 0, i.e., index > 0
         Set valueList(index) = what
     Else
-        Call Err.Raise(1, , "Key " & key & " does not exist.")
+        Call Me.Add(Key, what)
     End If
 End Property
 
-Public Sub LetOrSet(ByVal key As Variant, ByVal what As Variant)
+Public Sub LetOrSet(ByVal Key As Variant, ByVal what As Variant)
     If IsObject(what) Then
-        Set Me(key) = what
+        Set Me(Key) = what
     Else
-        Let Me(key) = what
+        Let Me(Key) = what
     End If
+End Sub
+
+' Dictionary compatible
+Public Property Let Key(ByVal oldKey As Variant, ByVal newKey As Variant)
+    Dim indexOld As Long
+    Let indexOld = Me.IndexOfKey(oldKey)
+    
+    If indexOld = 0 Then
+        Call Err.Raise(32811, , "Method 'Key' of object 'Mapping' failed")
+    End If
+    
+    Dim indexNew As Long
+    Let indexNew = Me.IndexOfKey(newKey)
+    
+    If indexOld <> indexNew Then
+        If indexNew Then ' indexNew <> 0
+            Call Err.Raise(457)
+        Else ' indexNew = 0
+            If IsObject(newKey) Then
+                Set keyList(indexOld) = newKey
+            Else
+                Let keyList(indexOld) = newKey
+            End If
+        End If
+    End If
+End Property
+
+' Redundant
+Public Property Set Key(ByVal oldKey As Variant, ByVal newKey As Object)
+    Dim indexOld As Long
+    Let indexOld = Me.IndexOfKey(oldKey)
+        
+    If indexOld = 0 Then
+        Call Err.Raise(32811, , "Method 'Key' of object 'Mapping' failed")
+    End If
+    
+    Dim indexNew As Long
+    Let indexNew = Me.IndexOfKey(newKey)
+    
+    If indexOld <> indexNew Then
+        If indexNew Then ' indexNew <> 0
+            Call Err.Raise(457)
+        Else ' indexNew = 0
+            Set keyList(indexOld) = newKey
+        End If
+    End If
+End Property
+
+Public Sub RemoveAt(ByVal index As Long)
+    Call keyList.RemoveAt(index)
+    Call valueList.RemoveAt(index)
+End Sub
+
+' Dictionary compatible
+Public Function Remove(ByVal Key As Variant, Optional ByVal errOnAbsent As Boolean = True) As Boolean
+    Dim index As Long
+    Let index = Me.IndexOfKey(Key)
+    
+    If index Then ' index <> 0, i.e., index > 0
+        Call Me.RemoveAt(index)
+        Let Remove = True
+    ElseIf errOnAbsent Then
+        Call Err.Raise(32811, , "Method 'Remove' of object 'Mapping' failed")
+    End If
+End Function
+
+Public Sub Clear()
+    Call keyList.Clear
+    Call valueList.Clear
+End Sub
+
+' Dictionary compatible
+Public Sub RemoveAll()
+    Call Me.Clear
 End Sub
 
 Public Function GetKey(ByVal index As Long) As Variant
@@ -173,32 +279,6 @@ Public Sub SetByIndex(ByVal index As Long, ByVal what As Variant)
     End If
 End Sub
 
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Information
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function ContainsKey(ByVal key As Variant) As Boolean
-    Let ContainsKey = Me.IndexOfKey(key)
-End Function
-
-Public Function Exists(ByVal key As Variant) As Boolean ' Dictionary compatible
-    Let Exists = Me.ContainsKey(key)
-End Function
-
-Public Function Contains(ByVal key As Variant) As Boolean
-    Let Contains = Me.ContainsKey(key)
-End Function
-
-Public Function IndexOfValue(ByVal value As Variant) As Long
-    Let IndexOfValue = valueList.IndexOf(value)
-End Function
-
-Public Function ContainsValue(ByVal value As Variant) As Boolean
-    Let ContainsValue = Me.IndexOfValue(value)
-End Function
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Preserve the List Length
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Sub TrimToSize()
     Call keyList.TrimToSize
     Call valueList.TrimToSize
@@ -210,70 +290,28 @@ Public Sub Reverse()
 End Sub
 
 Public Sub SortByValue(Optional ByVal isDescending As Boolean)
-    Call keyList.Map(valueList.Sort(isDescending))
+    Call keyList.map(valueList.Sort(isDescending))
 End Sub
 
 Public Sub SortByKey(Optional ByVal isDescending As Boolean)
-    Call valueList.Map(keyList.Sort(isDescending))
+    Call valueList.map(keyList.Sort(isDescending))
 End Sub
 
 Public Sub Sort(Optional ByVal isDescending As Boolean)
-    Call Me.SortByKey(isDescending)
-End Sub
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Operations that Alter the List Length
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Sub Clear()
-    Call keyList.Clear
-    Call valueList.Clear
-End Sub
-
-Public Sub RemoveAll() ' Dictionary compatible
-    Call Me.Clear
-End Sub
-
-Public Sub Add(ByVal key As Variant, ByVal value As Variant, Optional ByVal index As Long = -1)
-    If Me.ContainsKey(key) Then
-        Call Err.Raise(1, , "Key existed.")
-    Else
-        Call keyList.Insert(key, index)
-        Call valueList.Insert(value, index)
-    End If
-End Sub
-
-Public Sub RemoveAt(ByVal index As Long)
-    Call keyList.RemoveAt(index)
-    Call valueList.RemoveAt(index)
-End Sub
-
-Public Sub Remove(ByVal key As Variant) ' Dictionary compatible
-    Dim index As Long
-    Let index = Me.IndexOfKey(key)
-    
-    If index Then ' index <> 0, i.e., index > 0
-        Call Me.RemoveAt(index)
-    End If
+    Call SortByKey(isDescending)
 End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Constructors
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function FromCollection(ByVal coll As Collection) As Mapping
-'With New Mapping
-'    Dim i As Long
-'    For i = 0 To dict.Count - 1
-'        Call .Add(dict.key(i), dict.Item(i))
-'    Next i
+'Public Function FromCollection(ByVal coll As Collection) As Mapping
 '
-'    Set FromDictionary = .Self
-'End With
-End Function
+'End Function
 
 Public Function FromLists(ByVal newKeyList As List, ByVal newValueList As List) As Mapping
 With New Mapping
     If newKeyList.Count <> newValueList.Count Then
-        Call Err.Raise(1, , "Error")
+        Call Err.Raise(1, , "Length not match")
     End If
     
     Dim i As Long
@@ -288,8 +326,22 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function CopyTo() As List
-    
+'Public Function CopyTo() As List
+'
+'End Function
+
+' Dictionary compatible
+Public Function Keys(Optional ByVal base As Long) As Variant()
+    Let Keys = keyList.ToArray(base)
+End Function
+
+Public Function Values(Optional ByVal base As Long) As Variant()
+    Let Values = valueList.ToArray(base)
+End Function
+
+' Dictionary compatible
+Public Function Items(Optional ByVal base As Long) As Variant()
+    Let Items = valueList.ToArray(base)
 End Function
 
 Public Function GetKeyList() As List
@@ -300,21 +352,9 @@ Public Function GetValueList() As List
     Set GetValueList = valueList.Clone
 End Function
 
-Public Function Keys(Optional ByVal base As Long) As Variant() ' Dictionary compatible
-    Set Keys = keyList.ToArray(base)
-End Function
-
-Public Function Values(Optional ByVal base As Long) As Variant()
-    Set Values = valueList.ToArray(base)
-End Function
-
-Public Function Items(Optional ByVal base As Long) As Variant() ' Dictionary compatible
-    Let Items = Me.Values(base)
-End Function
-
-Public Function ToCollection() As Collection
-
-End Function
+'Public Function ToCollection() As Collection
+'
+'End Function
 
 Public Sub ToImmediate(Optional ByVal head As Long = 50, Optional ByVal tail As Long = 50)
     Dim sep0 As String * 2: Let sep0 = "| "

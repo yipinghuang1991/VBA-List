@@ -11,7 +11,6 @@ Attribute VB_Exposed = False
 '@PredeclaredId
 
 Option Explicit
-Option Base 1
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Dependency Graphs
@@ -215,7 +214,7 @@ With This
                 Let .Capacity = 2 * .Capacity
             Loop Until newLength <= .Capacity
             
-            ReDim Preserve .theArray(.Capacity)
+            ReDim Preserve .theArray(1 To .Capacity)
         End If
     Else ' newLength <= .Length, equality is redundant
         Dim i As Long
@@ -586,7 +585,7 @@ With indexList
         
         Dim i As Long
         For i = 1 To .Length
-            If Not List.IsIndexValid(.Self(i)) Then
+            If Not Me.IsIndexValid(.Self(i)) Then
                 Let IsIndexList = False
                 Exit For
             End If
@@ -740,7 +739,7 @@ Public Sub Reverse()
     
     If thisLength Then ' thisLength <> 0
         Dim newArray() As Variant
-        ReDim newArray(This.Capacity) As Variant
+        ReDim newArray(1 To This.Capacity) As Variant
     
         Dim i As Long
         For i = 1 To thisLength
@@ -927,11 +926,11 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Operations that Alter the List Length
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Sub Map(ByVal indexList As List)
+Public Sub map(ByVal indexList As List)
     Call Me.IndexListValidate(indexList)
     
     Dim newArray() As Variant
-    ReDim newArray(indexList.Length) As Variant
+    ReDim newArray(1 To indexList.Length) As Variant
     
     Dim i As Long
     For i = 1 To indexList.Length
