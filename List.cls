@@ -20,10 +20,10 @@ Option Explicit
 ' Class_Initialize
 ' Self
 ' Capacity
-' Length -> Count
+' Length = Count
 ' TrimToSize
 ' Resize
-' IsIndexValid -> IndexValidate -> Item (Default Member) -> LetOrSet
+' IsIndexValid ~> IndexValidate -> Item -> LetOrSet
 '
 ' ## Generators ##
 '
@@ -153,16 +153,6 @@ Option Explicit
 ' Max
 ' Min
 ' Sum
-'
-' ## Vector Functions ##
-'
-' VecAbs
-' VecPow
-' VecNorm
-' VecSum
-' VecProd
-' ScalarProd
-' VecDot
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Implementation
@@ -195,7 +185,7 @@ Public Property Get Length() As Long
 End Property
 
 Public Property Get Count() As Long
-    Let Count = Me.Length
+    Let Count = This.Length
 End Property
 
 Public Sub TrimToSize()
@@ -234,7 +224,7 @@ Public Function IsIndexValid(ByVal index As Long) As Boolean ' Default to False
 End Function
 
 Public Sub IndexValidate(ByVal index As Long)
-    If Not IsIndexValid(index) Then
+    If (index < 1) Or (index > This.Length) Then
         Call Err.Raise(1, , "Index out of range.")
     End If
 End Sub
@@ -289,7 +279,11 @@ Public Function Full(ByVal inputLength As Long, ByVal what As Variant) As List
 With Me.EmptyList(inputLength)
     Dim i As Long
     For i = 1 To inputLength
-        Call .LetOrSet(i, what)
+        If IsObject(what) Then 'Call .LetOrSet(i, what)
+            Set .Self(i) = what
+        Else
+            Let .Self(i) = what
+        End If
     Next i
     
     Set Full = .Self
@@ -729,7 +723,11 @@ Public Sub SetRange(ByVal index As Long, ByVal lst As List)
     
     Dim i As Long
     For i = index To index + lst.Length - 1
-        Call Me.LetOrSet(i, lst(i - index + 1))
+        If IsObject(lst(i - index + 1)) Then 'Call Me.LetOrSet(i, lst(i - index + 1))
+            Set Me(i) = lst(i - index + 1)
+        Else
+            Let Me(i) = lst(i - index + 1)
+        End If
     Next i
 End Sub
 
@@ -799,7 +797,11 @@ End Sub
 
 Public Sub Copy(ByVal index As Long, ByVal indexFrom As Long)
     If index <> indexFrom Then
-        Call LetOrSet(index, Me(indexFrom))
+        If IsObject(Me(indexFrom)) Then 'Call LetOrSet(index, Me(indexFrom))
+            Set Me(index) = Me(indexFrom)
+        Else
+            Let Me(index) = Me(indexFrom)
+        End If
     End If
 End Sub
 
@@ -878,7 +880,12 @@ With Me
             Call .Copy(indexList(i), indexList(i - 1))
         Next i
         
-        Call .LetOrSet(indexList(1), lastItem)
+        If IsObject(lastItem) Then 'Call .LetOrSet(indexList(1), lastItem)
+            Set .Self(indexList(1)) = lastItem
+        Else
+            Let .Self(indexList(1)) = lastItem
+        End If
+        
     End If
 End With
 End Sub
@@ -986,7 +993,11 @@ With Me
     
     Dim i As Long
     For i = 1 To lstLength
-        Call .LetOrSet(index + i, lst(i))
+        If IsObject(lst(i)) Then 'Call .LetOrSet(index + i, lst(i))
+            Set .Self(index + i) = lst(i)
+        Else
+            Let .Self(index + i) = lst(i)
+        End If
     Next i
 End With
 End Sub
@@ -1011,7 +1022,7 @@ Public Sub Add(ByVal what As Variant)
     Call Me.Append(what)
 End Sub
 
-Public Function RemoveRange(ByVal index As Long, ByVal Length As Long) As Boolean
+Public Sub RemoveRange(ByVal index As Long, ByVal Length As Long)
     Call IndexValidate(index)
     
     If index + Length > This.Length Then
@@ -1020,7 +1031,7 @@ Public Function RemoveRange(ByVal index As Long, ByVal Length As Long) As Boolea
         Call Me.Shift(-Length, index + Length)
         Call Me.Resize(This.Length - Length)
     End If
-End Function
+End Sub
 
 Public Sub RemoveAt(ByVal index As Long)
     Call RemoveRange(index, 1)
@@ -1085,7 +1096,11 @@ Public Sub Keep(ByVal indexList As List)
 
     Dim i As Long
     For i = 1 To indexList.Length
-        Call Me.LetOrSet(i, Me(indexList(i)))
+        If IsObject(Me(indexList(i))) Then 'Call Me.LetOrSet(i, Me(indexList(i)))
+            Set Me(i) = Me(indexList(i))
+        Else
+            Let Me(i) = Me(indexList(i))
+        End If
     Next i
 
     Call Me.Resize(indexList.Length)
@@ -1252,7 +1267,11 @@ With New List
     
     Dim i As Long
     For i = 1 To .Length
-        Call .LetOrSet(i, coll(i))
+        If IsObject(coll(i)) Then 'Call .LetOrSet(i, coll(i))
+            Set .Self(i) = coll(i)
+        Else
+            Let .Self(i) = coll(i)
+        End If
     Next i
     
     Set FromCollection = .Self
@@ -1272,7 +1291,11 @@ Public Function FromArray(ByVal sourceArray As Variant) As List
     
         Dim i As Long
         For i = 1 To .Length
-            Call .LetOrSet(i, sourceArray(i + indexOffset))
+            If IsObject(sourceArray(i + indexOffset)) Then 'Call .LetOrSet(i, sourceArray(i + indexOffset))
+                Set .Self(i) = sourceArray(i + indexOffset)
+            Else
+                Let .Self(i) = sourceArray(i + indexOffset)
+            End If
         Next i
         
         Set FromArray = .Self
@@ -1292,7 +1315,11 @@ With New List
     
     Dim i As Long
     For i = 1 To This.Length
-        Call .LetOrSet(i, Me(i))
+        If IsObject(Me(i)) Then 'Call .LetOrSet(i, Me(i))
+            Set .Self(i) = Me(i)
+        Else
+            Let .Self(i) = Me(i)
+        End If
     Next i
     
     Set Clone = .Self
@@ -1322,7 +1349,11 @@ With New List
         
         Dim i As Long
         For i = 1 To newLength
-            Call .LetOrSet(i, Me(i + indexStart - 1))
+            If IsObject(Me(i + indexStart - 1)) Then 'Call .LetOrSet(i, Me(i + indexStart - 1))
+                Set .Self(i) = Me(i + indexStart - 1)
+            Else
+                Let .Self(i) = Me(i + indexStart - 1)
+            End If
         Next i
     End If
     
@@ -1631,90 +1662,5 @@ Public Function Sum(ByVal lst As List) As Variant
     For i = 1 To lst.Length
         Let Sum = Sum + lst(i)
     Next i
-End Function
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Vector Functions
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function VecAbs(ByVal lst As List) As List
-With List.EmptyList(lst.Length)
-    Dim i As Long
-    For i = 1 To lst.Length
-        Let .Self(i) = Abs(lst(i))
-    Next i
-    
-    Set VecAbs = .Self
-End With
-End Function
-
-Public Function VecPow(ByVal lst As List, ByVal p As Variant) As List
-With List.EmptyList(lst.Length)
-    Dim i As Long
-    For i = 1 To lst.Length
-        Let .Self(i) = lst(i) ^ p
-    Next i
-    
-    Set VecPow = .Self
-End With
-End Function
-
-Public Function VecNorm(ByVal lst As List, Optional ByVal p As Variant = 2) As Variant
-    If p = -1 Then
-        Let VecNorm = Max(VecAbs(lst))
-    ElseIf p = 0 Then
-    ElseIf p = 1 Then
-        Let VecNorm = Sum(VecAbs(lst))
-    Else
-        Let VecNorm = Sum(VecPow(VecAbs(lst), p)) ^ (1 / p)
-    End If
-End Function
-
-Public Function VecSum(ByVal list1 As List, ByVal list2 As List) As List
-    If list1.Length <> list2.Length Then
-        Call Err.Raise(1, , "Error")
-    End If
-    
-    With List.EmptyList(list1.Length)
-        Dim i As Long
-        For i = 1 To list1.Length
-            Let .Self(i) = list1(i) + list2(i)
-        Next i
-        
-        Set VecSum = .Self
-    End With
-End Function
-
-Public Function VecProd(ByVal list1 As List, ByVal list2 As List) As List
-    If list1.Length <> list2.Length Then
-        Call Err.Raise(1, , "Error")
-    End If
-    
-    With List.EmptyList(list1.Length)
-        Dim i As Long
-        For i = 1 To list1.Length
-            Let .Self(i) = list1(i) * list2(i)
-        Next i
-        
-        Set VecProd = .Self
-    End With
-End Function
-
-Public Function ScalarProd(ByVal what As Variant, ByVal lst As List) As Variant
-With List.EmptyList(lst.Length)
-    Dim i As Long
-    For i = 1 To lst.Length
-        Let .Self(i) = what * lst(i)
-    Next i
-    
-    Set ScalarProd = .Self
-End With
-End Function
-
-Public Function VecDot(ByVal list1 As List, ByVal list2 As List) As Variant
-    If list1.Length <> list2.Length Then
-        Call Err.Raise(1, , "Error")
-    End If
-    
-    Let VecDot = List.Sum(VecProd(list1, list2))
 End Function
 
