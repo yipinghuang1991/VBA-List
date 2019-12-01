@@ -1,4 +1,4 @@
-# VBA List - Yet another VBA array wrapper
+# VBA List - An VBA array wrapper
 
 VBA List type to fit the IT requirement at work.
 
@@ -11,13 +11,12 @@ VBA List type to fit the IT requirement at work.
 5. Self-implement.
 6. Follow the convention of .Net ArrayList and SortedList classes, and some from Python List and Numpy Array. 
 7. Abuse of VBA type check. That is, almost no custom type check at all.
-8. Abuse of the `Variant` type. Efficiency is to sacrifice.
+8. Abuse of the `Variant` type.
 
 ## Provided Types
 
 - [x] List
 - [x] Mapping
-- [x] Dictionary, same as mapping, a drop-in replacement for `Dictionary`
 - [ ] Matrix
 - [ ] Table
 
