@@ -16,7 +16,7 @@ Option Base 1
 ' Implementation
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Private Type Storage
-    VectorList As List
+    Lists As List
     LengthX As Long
     LengthY As Long
 End Type
@@ -24,7 +24,7 @@ End Type
 Private This As Storage
 
 Private Sub Class_Initialize()
-    Set This.VectorList = New List
+    Set This.Lists = New List
 End Sub
 
 Public Property Get Self() As Matrix
@@ -47,25 +47,23 @@ End Property
 'End Property
 
 Public Sub Resize(ByVal newLengthX As Long, ByVal newLengthY As Long)
-    Call This.VectorList.Resize(newLengthY)
+    Call This.Lists.Resize(newLengthX)
 
-    Dim tempList As List
     Dim i As Long
 
-    If newLengthY > This.LengthY Then
-        For i = This.LengthY + 1 To newLengthY
-            Set tempList = New List
-            Set This.VectorList(i) = tempList
+    If newLengthX > This.LengthX Then
+        For i = This.LengthX + 1 To newLengthX
+            Set This.Lists(i) = New List
         Next i
     End If
 
-    Let This.LengthY = newLengthY
+    Let This.LengthX = newLengthX
 
-    For i = 1 To newLengthY
-        Call This.VectorList(i).Resize(newLengthX)
+    For i = 1 To newLengthX
+        Call This.Lists(i).Resize(newLengthY)
     Next i
 
-    Let This.LengthX = newLengthX
+    Let This.LengthY = newLengthY
 End Sub
 
 'Public Function Copy() As List
@@ -87,7 +85,7 @@ End Sub
 'End Function
 
 Private Function IsIndexValid(ByVal indexX As Long, ByVal indexY As Long) As Boolean
-    If (1 <= indexY) And (indexY <= This.LengthY) And (1 <= indexX) And (indexX <= This.LengthX) Then
+    If (1 <= indexX) And (indexX <= This.LengthX) And (1 <= indexY) And (indexY <= This.LengthY) Then
             Let IsIndexValid = True
     End If
 End Function
@@ -101,35 +99,15 @@ End Sub
 '@DefaultMember
 Public Property Get Item(ByVal indexX As Long, ByVal indexY As Long) As Variant
 Attribute Item.VB_UserMemId = 0
-    Call IndexValidate(indexX, indexY)
-    
-    If IsObject(This.VectorList(indexX)(indexY)) Then
-        Set Item = This.VectorList(indexX)(indexY)
+    If IsObject(This.Lists(indexX)(indexY)) Then
+        Set Item = This.Lists(indexX)(indexY)
     Else
-        Let Item = This.VectorList(indexX)(indexY)
+        Let Item = This.Lists(indexX)(indexY)
     End If
 End Property
 
 Public Property Let Item(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
-    Call IndexValidate(indexX, indexY)
-    
-    Let This.VectorList(indexX)(indexY) = what
-End Property
-
-Public Property Set Item(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
-    Call IndexValidate(indexX, indexY)
-    
-    Set This.VectorList(indexX)(indexY) = what
-End Property
-
-Public Property Let Assign(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
-    Call IndexValidate(indexX, indexY)
-    
-    If IsObject(what) Then
-        Set Me(indexX, indexY) = what
-    Else
-        Let Me(indexX, indexY) = what
-    End If
+    Let This.Lists(indexX)(indexY) = what
 End Property
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -171,7 +149,7 @@ Public Function FromArray(ByVal arr As Variant) As Matrix
         Dim j As Long
         For j = 1 To .LengthY
             For i = 1 To .LengthX
-                Let .Assign(i, j) = arr(i + offsetX, j + offsetY)
+                Let .Self(i, j) = arr(i + offsetX, j + offsetY)
             Next i
         Next j
 
@@ -192,7 +170,7 @@ Public Function FromArrayOfArrays(ByVal arr As Variant) As Matrix
     Next v
     
     With New Matrix
-        Call Resize(List.ArrayLen(arr), List.ArrayLen(arr(LBound(arr))))
+        Call .Resize(List.ArrayLen(arr), List.ArrayLen(arr(LBound(arr))))
         
         Dim offsetX As Long: Let offsetX = LBound(arr, 1) - 1
         Dim offsetY As Long: Let offsetY = LBound(arr(LBound(arr))) - 1
@@ -204,9 +182,13 @@ Public Function FromArrayOfArrays(ByVal arr As Variant) As Matrix
                 Let .Self(i, j) = arr(i + offsetX)(j + offsetY)
             Next i
         Next j
-
+        
         Set FromArrayOfArrays = .Self
     End With
+End Function
+
+Public Function FromArgumentsOfArrays(ByVal arr As Variant) As Matrix
+
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -219,3 +201,4 @@ End Function
 'Public Function ToArrayOfArrays() As Variant()
 '
 'End Function
+

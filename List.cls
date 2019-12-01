@@ -47,7 +47,7 @@ Option Explicit
 '
 ' Permute ~> Swap
 ' SwapForSort ~> Sort
-'        |-----> SortAndReturn
+'        |-----> SortAndGetPermutation
 '
 ' ## Operations that Alters the List Length ##
 '
@@ -263,21 +263,13 @@ Public Property Let Item(ByVal index As Long, ByVal what As Variant)
     End If
 End Property
 
-'Public Property Let Item(ByVal index As Long, ByVal what As Variant)
-'    If index <= This.Length Then
-'        Let This.arr(index) = what
-'    Else
-'        Call Err.Raise(9)
-'    End If
-'End Property
-
-'Public Property Set Item(ByVal index As Long, ByVal what As Variant)
-'    If index <= This.Length Then
-'        Set This.arr(index) = what
-'    Else
-'        Call Err.Raise(9)
-'    End If
-'End Property
+Public Property Set Item(ByVal index As Long, ByVal what As Variant)
+    If index <= This.Length Then
+        Set This.arr(index) = what
+    Else
+        Call Err.Raise(9)
+    End If
+End Property
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Information
@@ -617,7 +609,7 @@ Public Sub Permute(ByVal indexList As List)
     If listLength Then ' listLength <> 0
         Dim temp As Variant
         
-        If IsObject(Me(indexList(listLength))) Then
+        If IsObject(This.arr(indexList(listLength))) Then
             Set temp = This.arr(indexList(listLength))
         Else
             Let temp = This.arr(indexList(listLength))
@@ -704,7 +696,7 @@ Public Sub Sort(Optional ByVal isDescending As Boolean) ' Bubble sort, ascending
     End If
 End Sub
 
-Public Function SortAndReturn(Optional ByVal isDescending As Boolean) As List ' Bubble sort, ascending
+Public Function SortAndGetPermutation(Optional ByVal isDescending As Boolean) As List ' Bubble sort, ascending
 With Arange(1, This.Length)
     Dim swapped As Boolean
     Dim i As Long
@@ -740,7 +732,7 @@ With Arange(1, This.Length)
         Loop While swapped
     End If
     
-    Set SortAndReturn = .Self
+    Set SortAndGetPermutation = .Self
 End With
 End Function
 
@@ -1020,7 +1012,7 @@ Public Sub IntersectWith(ByVal lst As List)
     
     Dim i As Long
     For i = 1 To This.Length
-        If lst.Contains(Me(i)) Then
+        If lst.Contains(This.arr(i)) Then
             Let boolList(i) = True
         End If
     Next i
@@ -1034,7 +1026,7 @@ Public Sub DifferenceWith(ByVal lst As List)
     
     Dim i As Long
     For i = 1 To This.Length
-        If lst.Contains(Me(i)) Then
+        If lst.Contains(This.arr(i)) Then
             Let boolList(i) = False
         End If
     Next i

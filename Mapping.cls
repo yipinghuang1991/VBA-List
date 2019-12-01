@@ -294,11 +294,11 @@ Public Sub Reverse()
 End Sub
 
 Public Sub SortByValue(Optional ByVal isDescending As Boolean)
-    Call This.keyList.Map(This.valueList.SortAndReturn(isDescending))
+    Call This.keyList.Map(This.valueList.SortAndGetPermutation(isDescending))
 End Sub
 
 Public Sub SortByKey(Optional ByVal isDescending As Boolean)
-    Call This.valueList.Map(This.keyList.SortAndReturn(isDescending))
+    Call This.valueList.Map(This.keyList.SortAndGetPermutation(isDescending))
 End Sub
 
 Public Sub Sort(Optional ByVal isDescending As Boolean)
