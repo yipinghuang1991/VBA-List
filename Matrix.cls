@@ -66,27 +66,9 @@ Public Sub Resize(ByVal newLengthX As Long, ByVal newLengthY As Long)
     Let This.LengthY = newLengthY
 End Sub
 
-'Public Function Copy() As List
-'With New List
-'    Call .Resize(This.theLength)
-'
-'    Dim i As Long
-'    For i = 1 To This.theLength
-'        Call .LetOrSet(i, Me(i))
-''        If IsObject(Me(i)) Then
-''            Set .Self(i) = Me(i)
-''        Else
-''            Let .Self(i) = Me(i)
-''        End If
-'    Next i
-'
-'    Set Copy = .Self
-'End With
-'End Function
-
 Private Function IsIndexValid(ByVal indexX As Long, ByVal indexY As Long) As Boolean
     If (1 <= indexX) And (indexX <= This.LengthX) And (1 <= indexY) And (indexY <= This.LengthY) Then
-            Let IsIndexValid = True
+        Let IsIndexValid = True
     End If
 End Function
 
@@ -110,30 +92,53 @@ Public Property Let Item(ByVal indexX As Long, ByVal indexY As Long, ByVal what 
     Let This.Lists(indexX)(indexY) = what
 End Property
 
+Public Function Copy() As Matrix
+With New Matrix
+    Call .Resize(This.LengthX, This.LengthY)
+    
+    Dim i As Long
+    Dim j As Long
+    For i = 1 To This.LengthX
+        For j = 1 To This.LengthY
+            Let .Self(i, j) = This.Lists(i)(j)
+        Next j
+    Next i
+    
+    Set Copy = .Self
+End With
+End Function
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Information
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'Public Sub Clear(Optional ByVal indexX As Long, Optional ByVal indexY As Long)
-'    Dim i As Long
-'
-'    If indexX And indexY Then ' (indexX <> 0) And (indexY <> 0)
-'        Call This.listX(indexX).Clear(indexY)
-'    ElseIf indexX And (indexY = 0) Then ' (indexX <> 0) And (indexY = 0)
-'        Call This.listX(indexX).Clear
-'    ElseIf (indexX = 0) And indexY Then ' (indexX = 0) And (indexY <> 0)
-'        For i = 1 To This.theLengthX
-'            Call This.listX(i).Clear(indexY)
-'        Next i
-'    Else ' (indexX = 0) And (indexY = 0)
-'        For i = 1 To This.theLengthX
-'            Call This.listX(i).Clear
-'        Next i
-'    End If
-'End Sub
+Public Sub Clear(Optional ByVal indexX As Long, Optional ByVal indexY As Long)
+    Dim i As Long
+
+    If indexX And indexY Then ' (indexX <> 0) And (indexY <> 0)
+        Call This.Lists(indexX).Clear(indexY)
+    ElseIf indexX And (indexY = 0) Then ' (indexX <> 0) And (indexY = 0)
+        Call This.Lists(indexX).Clear
+    ElseIf (indexX = 0) And indexY Then ' (indexX = 0) And (indexY <> 0)
+        For i = 1 To This.LengthX
+            Call This.Lists(i).Clear(indexY)
+        Next i
+    Else ' (indexX = 0) And (indexY = 0)
+        For i = 1 To This.LengthX
+            Call This.Lists(i).Clear
+        Next i
+    End If
+End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Constructors
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Emptie(ByVal newLengthX As Long, ByVal newLengthY As Long) As Matrix
+With New Matrix
+    Call .Resize(newLengthX, newLengthY)
+    Set Emptie = .Self
+End With
+End Function
+
 Public Function FromArray(ByVal arr As Variant) As Matrix
     If List.ArrayDimension(arr) <> 2 Then
         Call Err.Raise(1, , "Required array of dimension 2")
@@ -162,15 +167,24 @@ Public Function FromArrayOfArrays(ByVal arr As Variant) As Matrix
         Call Err.Raise(1, , "Required array of dimension 1")
     End If
     
-    Dim v As Variant
-    For Each v In arr
-        If List.ArrayDimension(v) <> 1 Then
+    Dim subArr As Variant
+    For Each subArr In arr
+        If List.ArrayDimension(subArr) <> 1 Then
             Call Err.Raise(1, , "Required array of dimension 1")
         End If
-    Next v
+    Next subArr
+    
+    Dim width As Long
+    Let width = List.ArrayLen(arr(LBound(arr)))
+    
+    For Each subArr In arr
+        If List.ArrayLen(subArr) <> width Then
+            Call Err.Raise(1, , "Error")
+        End If
+    Next subArr
     
     With New Matrix
-        Call .Resize(List.ArrayLen(arr), List.ArrayLen(arr(LBound(arr))))
+        Call .Resize(List.ArrayLen(arr), width)
         
         Dim offsetX As Long: Let offsetX = LBound(arr, 1) - 1
         Dim offsetY As Long: Let offsetY = LBound(arr(LBound(arr))) - 1
@@ -187,8 +201,8 @@ Public Function FromArrayOfArrays(ByVal arr As Variant) As Matrix
     End With
 End Function
 
-Public Function FromArgumentsOfArrays(ByVal arr As Variant) As Matrix
-
+Public Function FromArgumentsOfArrays(ParamArray arr() As Variant) As Matrix
+    Set FromArgumentsOfArrays = FromArrayOfArrays(arr)
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''

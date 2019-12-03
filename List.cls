@@ -20,10 +20,17 @@ Option Explicit
 ' Self
 ' Capacity
 ' Length = Count
-' TrimToSize
+' ResizeJust
 ' Resize
+' TrimToSize
 ' IsIndexValid ~> IndexValidate
 ' ItemNoCheck ~~> Item
+'
+' ## Generators ##
+'
+' Emptie ---> EmptyLike
+'         |-> Full ---> FullLike
+'                   |-> Repeat
 '
 ' ## Information ##
 '
@@ -60,11 +67,9 @@ Option Explicit
 '                                    |-> Remove <-(IndexOf)
 '
 ' (Full) ----------  |-------> GetUniqueIndex --
-'                 |--|                         |-> Unique
-' (GetIndexList ---  |     |-> Keep ------------
-'  FromBoolList)     |--+--|
-'                       |  |-> KeepNot ----------> RemoveEach <-(IndexOfEach)
-' Map -------------------
+' (GetIndexList   |--|                         |-> Unique
+'  FromBoolList) --  |--+--|-> Keep ------------
+' Map ------------------|  |-> KeepNot ----------> RemoveEach <-(IndexOfEach)
 '
 ' ## Information between Lists ##
 '
@@ -94,14 +99,6 @@ Option Explicit
 '                                                            ^
 ' (InsertRange) ---------------------------------------------|
 '
-' ## Generators ##
-'
-' Emptie ---> EmptyLike
-'         |-> Full -------> Repeat
-'         |             |-> FullLike
-'         |-> Arange
-'         --> LinSpace ---> LogSpace
-'                       |-> GeomSpace
 ' ## Constructors ##
 '
 ' (Clone) -------|
@@ -150,8 +147,8 @@ End Type
 Private This As Storage
 
 Private Sub Class_Initialize()
+    ReDim This.arr(1 To 1)
     Let This.Capacity = 1
-    ReDim This.arr(1 To This.Capacity)
 End Sub
 
 Public Property Get Self() As List
@@ -163,17 +160,21 @@ Public Property Get Capacity() As Long
 End Property
 
 Public Property Let Capacity(ByVal newCapacity As Long)
-    If newCapacity = 0 Then
-        Let newCapacity = 1
-    End If
-    
-    If newCapacity > This.Capacity Then
-        ReDim Preserve This.arr(1 To newCapacity)
-        Let This.Capacity = newCapacity
-    ElseIf newCapacity < This.Capacity Then
-        ReDim Preserve This.arr(1 To newCapacity)
-        Let This.Capacity = newCapacity
-        Let This.Length = newCapacity
+    If newCapacity >= 0 Then
+        If newCapacity = 0 Then
+            ReDim This.arr(1 To 1)
+            Let This.Capacity = 1
+            Let This.Length = 0
+        ElseIf newCapacity > This.Capacity Then
+            ReDim Preserve This.arr(1 To newCapacity)
+            Let This.Capacity = newCapacity
+        ElseIf newCapacity < This.Capacity Then
+            ReDim Preserve This.arr(1 To newCapacity)
+            Let This.Capacity = newCapacity
+            Let This.Length = newCapacity
+        End If
+    Else
+        Call Err.Raise(1, , "Expected nonnegative integer")
     End If
 End Property
 
@@ -185,28 +186,46 @@ Public Property Get Count() As Long
     Let Count = This.Length
 End Property
 
-Public Sub TrimToSize()
-    Let This.arr = ToArray()
-    Let This.Capacity = This.Length
+Public Sub ResizeJust(ByVal newLength As Long)
+    If newLength = 0 Then
+        ReDim This.arr(1 To 1)
+        Let This.Capacity = 1
+        Let This.Length = 0
+    ElseIf newLength > 0 Then
+        ReDim Preserve This.arr(1 To newLength)
+        Let This.Capacity = newLength
+        Let This.Length = newLength
+    Else
+        Call Err.Raise(1, , "Expected nonnegative integer")
+    End If
 End Sub
 
 Public Sub Resize(ByVal newLength As Long)
-    If newLength > This.Length Then
-        If newLength > This.Capacity Then
-            Do
-                Let This.Capacity = 2 * This.Capacity
-            Loop Until newLength <= This.Capacity
-            
-            ReDim Preserve This.arr(1 To This.Capacity)
+    If newLength >= 0 Then
+        If newLength > This.Length Then
+            If newLength > This.Capacity Then
+                Do
+                    Let This.Capacity = 2 * This.Capacity
+                Loop Until newLength <= This.Capacity
+                
+                ReDim Preserve This.arr(1 To This.Capacity)
+            End If
+        Else ' newLength <= This.Length, equality is redundant
+            Dim i As Long
+            For i = newLength + 1 To This.Length
+                Let This.arr(i) = Empty
+            Next i
         End If
-    Else ' newLength <= .Length, equality is redundant
-        Dim i As Long
-        For i = newLength + 1 To This.Length
-            Let This.arr(i) = Empty
-        Next i
+        
+        Let This.Length = newLength
+    Else
+        Call Err.Raise(1, , "Expected nonnegative integer")
     End If
-    
-    Let This.Length = newLength
+End Sub
+
+Public Sub TrimToSize()
+    Let This.arr = ToArray()
+    Let This.Capacity = This.Length
 End Sub
 
 Public Function IsIndexValid(ByVal index As Long) As Boolean ' Default to False
@@ -272,13 +291,46 @@ Public Property Set Item(ByVal index As Long, ByVal what As Variant)
 End Property
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Generators
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Emptie(ByVal inputLength As Long) As List
+With New List
+    Call .ResizeJust(inputLength)
+    Set Emptie = .Self
+End With
+End Function
+
+Public Function EmptyLike(ByVal lst As List) As List
+    Set EmptyLike = Emptie(lst.Length)
+End Function
+
+Public Function Full(ByVal inputLength As Long, ByVal what As Variant) As List
+With Emptie(inputLength)
+    Dim i As Long
+    For i = 1 To inputLength
+        Let .ItemNoCheck(i) = what
+    Next i
+    
+    Set Full = .Self
+End With
+End Function
+
+Public Function FullLike(ByVal lst As List, ByVal what As Variant) As List
+    Set FullLike = Full(lst.Length, what)
+End Function
+
+Public Function Repeat(ByVal what As Variant, ByVal times As Long) As List
+    Set Repeat = Full(times, what)
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Information
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function LastIndexOf(ByVal what As Variant, _
                             Optional ByVal indexStart As Long, _
                             Optional ByVal indexLength As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
-        If (indexStart < 1) Or (indexStart > This.Length) Then
+        If (indexStart < 1) Or (indexStart > This.Length) Then ' Call IndexValidate(indexStart)
             Call Err.Raise(9)
         End If
     Else ' indexStart = 0
@@ -324,7 +376,7 @@ Public Function IndexOf(ByVal what As Variant, _
                         Optional ByVal indexStart As Long, _
                         Optional ByVal indexLength As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
-        If (indexStart < 1) Or (indexStart > This.Length) Then
+        If (indexStart < 1) Or (indexStart > This.Length) Then ' Call IndexValidate(indexStart)
             Call Err.Raise(9)
         End If
     Else ' indexStart = 0
@@ -398,6 +450,24 @@ With New List
     
     Set IndexOfEach = .Self
 End With
+End Function
+
+Public Function GetIndexListFromBoolList(ByVal boolList As List) As List
+    Dim indexList As List
+    Set indexList = List.Emptie(boolList.Length)
+    
+    Dim j As Long ' Default to 0
+    Dim i As Long
+    For i = 1 To boolList.Length
+        If boolList.ItemNoCheck(i) Then
+            Let j = j + 1
+            Let indexList.ItemNoCheck(j) = i
+        End If
+    Next i
+    
+    Call indexList.Resize(j)
+    
+    Set GetIndexListFromBoolList = indexList
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -697,9 +767,13 @@ Public Sub Sort(Optional ByVal isDescending As Boolean) ' Bubble sort, ascending
 End Sub
 
 Public Function SortAndGetPermutation(Optional ByVal isDescending As Boolean) As List ' Bubble sort, ascending
-With Arange(1, This.Length)
-    Dim swapped As Boolean
+With List.Emptie(This.Length)
     Dim i As Long
+    For i = 1 To This.Length
+        Let .ItemNoCheck(i) = i
+    Next i
+    
+    Dim swapped As Boolean
     Dim temp As Variant
     
     If isDescending Then
@@ -870,24 +944,6 @@ Public Sub Map(ByVal indexList As List)
     Let This.Capacity = indexListLength
     Let This.Length = indexListLength
 End Sub
-
-Public Function GetIndexListFromBoolList(ByVal boolList As List) As List
-    Dim indexList As List
-    Set indexList = List.Emptie(boolList.Length)
-    
-    Dim j As Long ' Default to 0
-    Dim i As Long
-    For i = 1 To boolList.Length
-        If boolList(i) Then
-            Let j = j + 1
-            Let indexList(j) = i
-        End If
-    Next i
-    
-    Call indexList.Resize(j)
-    
-    Set GetIndexListFromBoolList = indexList
-End Function
 
 Public Sub Keep(ByVal indexList As List)
     Dim boolList As List
@@ -1063,111 +1119,6 @@ End With
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Generators
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Function Emptie(ByVal inputLength As Long) As List
-With New List
-    Call .Resize(inputLength)
-    Set Emptie = .Self
-End With
-End Function
-
-Public Function EmptyLike(ByVal lst As List) As List
-    Set EmptyLike = Emptie(lst.Length)
-End Function
-
-Public Function Full(ByVal inputLength As Long, ByVal what As Variant) As List
-With Emptie(inputLength)
-    Dim i As Long
-    For i = 1 To inputLength
-        Let .ItemNoCheck(i) = what
-    Next i
-    
-    Set Full = .Self
-End With
-End Function
-
-Public Function Repeat(ByVal what As Variant, ByVal times As Long) As List
-    Set Repeat = Full(times, what)
-End Function
-
-Public Function FullLike(ByVal lst As List, ByVal what As Variant) As List
-    Set FullLike = Full(lst.Length, what)
-End Function
-
-Public Function Arange(ByVal start As Variant, ByVal ends As Variant, _
-                       Optional ByVal step As Variant = 1) As List
-    Dim extraLength As Long
-    Let extraLength = Int((ends - start) / step)
-    
-    If extraLength < 0 Then Let extraLength = 0
-    
-    With Emptie(1 + extraLength)
-        Let .ItemNoCheck(1) = start
-        
-        Dim i As Long
-        For i = 2 To .Length
-            Let .ItemNoCheck(i) = .ItemNoCheck(i - 1) + step
-        Next i
-        
-        Set Arange = .Self
-    End With
-End Function
-
-Public Function LinSpace(ByVal start As Variant, ByVal ends As Variant, _
-                         Optional ByVal num As Long = 50) As List
-With Emptie(num + 1)
-    Dim width As Double
-    Let width = (ends - start) / num
-    
-    Let .ItemNoCheck(1) = start
-    
-    Dim i As Long
-    For i = 2 To num
-        Let .ItemNoCheck(i) = .ItemNoCheck(1) + (i - 1) * width ' .ItemNoCheck(i - 1) + width
-    Next i
-    
-    Let .ItemNoCheck(num + 1) = ends
-    
-    Set LinSpace = .Self
-End With
-End Function
-
-Public Function LogSpace(ByVal start As Variant, ByVal ends As Variant, _
-                         Optional ByVal num As Long = 50, _
-                         Optional ByVal base As Double) As List
-    If base = 0 Then Let base = Math.Exp(1)
-    
-    With LinSpace(start, ends, num)
-        Dim i As Long
-        For i = 1 To .Length
-            Let .ItemNoCheck(i) = base ^ (.ItemNoCheck(i))
-        Next i
-        
-        Set LogSpace = .Self
-    End With
-End Function
-
-Public Function GeomSpace(ByVal start As Variant, ByVal ends As Variant, _
-                          Optional ByVal num As Long = 50, _
-                          Optional ByVal base As Double) As List
-    If base = 0 Then Let base = Math.Exp(1)
-    
-    With LinSpace(Log(start) / Log(base), Log(ends) / Log(base), num)
-        Let .ItemNoCheck(1) = start
-        
-        Dim i As Long
-        For i = 2 To .Length - 1
-            Let .ItemNoCheck(i) = base ^ (.ItemNoCheck(i))
-        Next i
-        
-        Let .ItemNoCheck(.Length) = ends
-        
-        Set GeomSpace = .Self
-    End With
-End Function
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Constructors
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function Concatenate(ByVal listL As List, ByVal listR As List) As List
@@ -1236,8 +1187,8 @@ Public Function FromArray(ByVal arr As Variant) As List
     End With
 End Function
 
-Public Function FromArguments(ParamArray argumentsArray() As Variant) As List
-    Set FromArguments = List.FromArray(argumentsArray)
+Public Function FromArguments(ParamArray argArray() As Variant) As List
+    Set FromArguments = List.FromArray(argArray)
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
