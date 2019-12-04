@@ -16,13 +16,12 @@ Option Explicit
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' ## Implementation ##
 '
-' Class_Initialize
 ' Self
-' Capacity
+' Capacity -----> Class_Initialize
+'             |-> Resize
+'             --> TrimToSize
 ' Length = Count
-' Resize
-' TrimToSize
-' IsIndexValid ~> IndexValidate
+' IsIndexValid -> IndexValidate
 ' ItemNoCheck ~~> Item
 '
 ' ## Generators ##
@@ -142,11 +141,6 @@ End Type
 
 Private This As Storage
 
-Private Sub Class_Initialize()
-    ReDim This.arr(1 To 1)
-    Let This.Capacity = 1
-End Sub
-
 Public Property Get Self() As List
     Set Self = Me
 End Property
@@ -172,13 +166,9 @@ Public Property Let Capacity(ByVal newCapacity As Long)
     End If
 End Property
 
-Public Property Get Length() As Long
-    Let Length = This.Length
-End Property
-
-Public Property Get Count() As Long
-    Let Count = This.Length
-End Property
+Private Sub Class_Initialize()
+    Let Capacity = 0
+End Sub
 
 Public Sub Resize(ByVal newLength As Long, Optional ByVal exact As Boolean)
     If exact Then
@@ -187,9 +177,7 @@ Public Sub Resize(ByVal newLength As Long, Optional ByVal exact As Boolean)
             ReDim Preserve This.arr(1 To This.Capacity)
             Let This.Length = newLength
         ElseIf newLength = 0 Then
-            Let This.Capacity = 1
-            ReDim This.arr(1 To This.Capacity)
-            Let This.Length = 0
+            Let Capacity = 0
         Else ' newLength < 0
             Call Err.Raise(1, , "Expected nonnegative integer")
         End If
@@ -218,9 +206,16 @@ Public Sub Resize(ByVal newLength As Long, Optional ByVal exact As Boolean)
 End Sub
 
 Public Sub TrimToSize()
-    Let This.arr = ToArray()
-    Let This.Capacity = This.Length
+    Let Capacity = This.Length
 End Sub
+
+Public Property Get Length() As Long
+    Let Length = This.Length
+End Property
+
+Public Property Get Count() As Long
+    Let Count = This.Length
+End Property
 
 Public Function IsIndexValid(ByVal index As Long) As Boolean ' Default to False
     If (1 <= index) And (index <= This.Length) Then
@@ -229,7 +224,7 @@ Public Function IsIndexValid(ByVal index As Long) As Boolean ' Default to False
 End Function
 
 Public Sub IndexValidate(ByVal index As Long)
-    If (index < 1) Or (index > This.Length) Then
+    If Not IsIndexValid(index) Then
         Call Err.Raise(9)
     End If
 End Sub
@@ -254,7 +249,7 @@ End Property
 Public Property Get Item(ByVal index As Long) As Variant
 Attribute Item.VB_UserMemId = 0
     If index <= This.Length Then
-        If IsObject(This.arr(index)) Then
+        If IsObject(This.arr(index)) Then ' Let Item = ItemNoCheck(index)
             Set Item = This.arr(index)
         Else
             Let Item = This.arr(index)
@@ -266,7 +261,7 @@ End Property
 
 Public Property Let Item(ByVal index As Long, ByVal what As Variant)
     If index <= This.Length Then
-        If IsObject(what) Then
+        If IsObject(what) Then ' Let ItemNoCheck(index) = what
             Set This.arr(index) = what
         Else
             Let This.arr(index) = what
@@ -276,6 +271,7 @@ Public Property Let Item(ByVal index As Long, ByVal what As Variant)
     End If
 End Property
 
+' Redundant
 Public Property Set Item(ByVal index As Long, ByVal what As Variant)
     If index <= This.Length Then
         Set This.arr(index) = what
