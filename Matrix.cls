@@ -10,13 +10,12 @@ Attribute VB_Exposed = False
 '@Folder("Type")
 '@PredeclaredId
 Option Explicit
-Option Base 1
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Implementation
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Private Type Storage
-    Lists As List
+    Vectors As List
     LengthX As Long
     LengthY As Long
 End Type
@@ -24,7 +23,7 @@ End Type
 Private This As Storage
 
 Private Sub Class_Initialize()
-    Set This.Lists = New List
+    Set This.Vectors = New List
 End Sub
 
 Public Property Get Self() As Matrix
@@ -47,22 +46,22 @@ End Property
 'End Property
 
 Public Sub Resize(ByVal newLengthX As Long, ByVal newLengthY As Long)
-    Call This.Lists.Resize(newLengthX)
+    Call This.Vectors.Resize(newLengthX, True)
 
     Dim i As Long
-
+    
     If newLengthX > This.LengthX Then
         For i = This.LengthX + 1 To newLengthX
-            Set This.Lists(i) = New List
+            Set This.Vectors(i) = New Vector
         Next i
     End If
-
+    
     Let This.LengthX = newLengthX
-
+    
     For i = 1 To newLengthX
-        Call This.Lists(i).Resize(newLengthY)
+        Call This.Vectors.ItemNoCheck(i).Resize(newLengthY)
     Next i
-
+    
     Let This.LengthY = newLengthY
 End Sub
 
@@ -78,18 +77,53 @@ Private Sub IndexValidate(ByVal indexX As Long, ByVal indexY As Long)
     End If
 End Sub
 
+Private Function IsNumberType(ByRef what As Variant) As Boolean
+    Dim typeOfWhat As Long
+    Let typeOfWhat = VarType(what)
+    
+    If typeOfWhat = 3 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 4 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 5 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 20 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 2 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 17 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 14 Then
+        Let IsNumberType = True
+    End If
+End Function
+
+Private Sub NumberTypeValidate(ByRef what As Variant)
+    If Not IsNumberType(what) Then
+        Call Err.Raise(1, , "Expected a number")
+    End If
+End Sub
+
 '@DefaultMember
 Public Property Get Item(ByVal indexX As Long, ByVal indexY As Long) As Variant
 Attribute Item.VB_UserMemId = 0
-    If IsObject(This.Lists(indexX)(indexY)) Then
-        Set Item = This.Lists(indexX)(indexY)
-    Else
-        Let Item = This.Lists(indexX)(indexY)
-    End If
+    Let Item = This.Vectors(indexX)(indexY)
 End Property
 
 Public Property Let Item(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
-    Let This.Lists(indexX)(indexY) = what
+    Call NumberTypeValidate(what)
+    
+    Let This.Vectors(indexX)(indexY) = what
+End Property
+
+Public Property Get ItemNoCheck(ByVal indexX As Long, ByVal indexY As Long) As Variant
+    Let ItemNoCheck = This.Vectors.ItemNoCheck(indexX).ItemNoCheck(indexY)
+End Property
+
+Public Property Let ItemNoCheck(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
+    Call NumberTypeValidate(what)
+    
+    Let This.Vectors.ItemNoCheck(indexX).ItemNoCheck(indexY) = what
 End Property
 
 Public Function Copy() As Matrix
@@ -100,7 +134,7 @@ With New Matrix
     Dim j As Long
     For i = 1 To This.LengthX
         For j = 1 To This.LengthY
-            Let .Self(i, j) = This.Lists(i)(j)
+            Let .ItemNoCheck(i, j) = This.Vectors.ItemNoCheck(i).ItemNoCheck(j)
         Next j
     Next i
     
@@ -109,36 +143,73 @@ End With
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Information
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-Public Sub Clear(Optional ByVal indexX As Long, Optional ByVal indexY As Long)
-    Dim i As Long
-
-    If indexX And indexY Then ' (indexX <> 0) And (indexY <> 0)
-        Call This.Lists(indexX).Clear(indexY)
-    ElseIf indexX And (indexY = 0) Then ' (indexX <> 0) And (indexY = 0)
-        Call This.Lists(indexX).Clear
-    ElseIf (indexX = 0) And indexY Then ' (indexX = 0) And (indexY <> 0)
-        For i = 1 To This.LengthX
-            Call This.Lists(i).Clear(indexY)
-        Next i
-    Else ' (indexX = 0) And (indexY = 0)
-        For i = 1 To This.LengthX
-            Call This.Lists(i).Clear
-        Next i
-    End If
-End Sub
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Constructors
+' Generators
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function Emptie(ByVal newLengthX As Long, ByVal newLengthY As Long) As Matrix
 With New Matrix
     Call .Resize(newLengthX, newLengthY)
+    
     Set Emptie = .Self
 End With
 End Function
 
+Public Function EmptyLike(ByVal mat As Matrix) As Matrix
+    Set EmptyLike = Emptie(mat.LengthX, mat.LengthY)
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' M -> M
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' M -> F
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' M x M -> M
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Plus(ByVal mat1 As Matrix, ByVal mat2 As Matrix) As Matrix
+
+End Function
+
+Public Function Minus(ByVal mat1 As Matrix, ByVal mat2 As Matrix) As Matrix
+
+End Function
+
+Public Function Multiply(ByVal mat1 As Matrix, ByVal mat2 As Matrix) As Matrix
+With Emptie(mat1.LengthX, mat2.LengthY)
+    If mat1.LengthY <> mat2.LengthX Then
+        Call Err.Raise(1, , "Error")
+    End If
+    
+    Dim temp As Variant
+    
+    Dim k As Long
+    Dim j As Long
+    Dim i As Long
+    For i = 1 To mat1.LengthX
+        For j = 1 To mat2.LengthY
+            Let temp = 0
+            
+            For k = 1 To mat1.LengthY
+                Let temp = temp + mat1.ItemNoCheck(i, k) * mat2.ItemNoCheck(k, j)
+            Next k
+            
+            Let .ItemNoCheck(i, j) = temp
+        Next j
+    Next i
+    
+    Set Multiply = .Self
+End With
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' M x M -> F
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Constructors
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function FromArray(ByVal arr As Variant) As Matrix
     If List.ArrayDimension(arr) <> 2 Then
         Call Err.Raise(1, , "Required array of dimension 2")
@@ -183,9 +254,7 @@ Public Function FromArrayOfArrays(ByVal arr As Variant) As Matrix
         End If
     Next subArr
     
-    With New Matrix
-        Call .Resize(List.ArrayLen(arr), width)
-        
+    With Emptie(List.ArrayLen(arr), width)
         Dim offsetX As Long: Let offsetX = LBound(arr, 1) - 1
         Dim offsetY As Long: Let offsetY = LBound(arr(LBound(arr))) - 1
         
@@ -208,11 +277,11 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-'Public Function ToArray() As Variant()
-'
-'End Function
+Public Function ToArray() As Variant()
 
-'Public Function ToArrayOfArrays() As Variant()
-'
-'End Function
+End Function
+
+Public Function ToArrayOfArrays() As Variant()
+
+End Function
 

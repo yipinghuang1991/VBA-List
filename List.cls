@@ -20,7 +20,6 @@ Option Explicit
 ' Self
 ' Capacity
 ' Length = Count
-' ResizeJust
 ' Resize
 ' TrimToSize
 ' IsIndexValid ~> IndexValidate
@@ -131,9 +130,6 @@ Option Explicit
 ' Floor
 ' Ceil
 ' Round (Pending)
-' Max
-' Min
-' Sum
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Implementation
@@ -160,20 +156,18 @@ Public Property Get Capacity() As Long
 End Property
 
 Public Property Let Capacity(ByVal newCapacity As Long)
-    If newCapacity >= 0 Then
-        If newCapacity = 0 Then
-            ReDim This.arr(1 To 1)
-            Let This.Capacity = 1
-            Let This.Length = 0
-        ElseIf newCapacity > This.Capacity Then
-            ReDim Preserve This.arr(1 To newCapacity)
-            Let This.Capacity = newCapacity
-        ElseIf newCapacity < This.Capacity Then
-            ReDim Preserve This.arr(1 To newCapacity)
-            Let This.Capacity = newCapacity
-            Let This.Length = newCapacity
+    If newCapacity > 0 Then
+        Let This.Capacity = newCapacity
+        ReDim Preserve This.arr(1 To This.Capacity)
+        
+        If This.Capacity < This.Length Then
+            Let This.Length = This.Capacity
         End If
-    Else
+    ElseIf newCapacity = 0 Then
+        Let This.Capacity = 1
+        ReDim This.arr(1 To This.Capacity)
+        Let This.Length = 0
+    Else ' newCapacity < 0
         Call Err.Raise(1, , "Expected nonnegative integer")
     End If
 End Property
@@ -186,40 +180,40 @@ Public Property Get Count() As Long
     Let Count = This.Length
 End Property
 
-Public Sub ResizeJust(ByVal newLength As Long)
-    If newLength = 0 Then
-        ReDim This.arr(1 To 1)
-        Let This.Capacity = 1
-        Let This.Length = 0
-    ElseIf newLength > 0 Then
-        ReDim Preserve This.arr(1 To newLength)
-        Let This.Capacity = newLength
-        Let This.Length = newLength
-    Else
-        Call Err.Raise(1, , "Expected nonnegative integer")
-    End If
-End Sub
-
-Public Sub Resize(ByVal newLength As Long)
-    If newLength >= 0 Then
-        If newLength > This.Length Then
-            If newLength > This.Capacity Then
-                Do
-                    Let This.Capacity = 2 * This.Capacity
-                Loop Until newLength <= This.Capacity
-                
-                ReDim Preserve This.arr(1 To This.Capacity)
-            End If
-        Else ' newLength <= This.Length, equality is redundant
-            Dim i As Long
-            For i = newLength + 1 To This.Length
-                Let This.arr(i) = Empty
-            Next i
+Public Sub Resize(ByVal newLength As Long, Optional ByVal exact As Boolean)
+    If exact Then
+        If newLength > 0 Then
+            Let This.Capacity = newLength
+            ReDim Preserve This.arr(1 To This.Capacity)
+            Let This.Length = newLength
+        ElseIf newLength = 0 Then
+            Let This.Capacity = 1
+            ReDim This.arr(1 To This.Capacity)
+            Let This.Length = 0
+        Else ' newLength < 0
+            Call Err.Raise(1, , "Expected nonnegative integer")
         End If
-        
-        Let This.Length = newLength
     Else
-        Call Err.Raise(1, , "Expected nonnegative integer")
+        If newLength >= 0 Then
+            If newLength > This.Length Then
+                If newLength > This.Capacity Then
+                    Do
+                        Let This.Capacity = 2 * This.Capacity
+                    Loop Until newLength <= This.Capacity
+                    
+                    ReDim Preserve This.arr(1 To This.Capacity)
+                End If
+            Else ' newLength <= This.Length, equality is redundant
+                Dim i As Long
+                For i = newLength + 1 To This.Length
+                    Let This.arr(i) = Empty
+                Next i
+            End If
+            
+            Let This.Length = newLength
+        Else ' newLength < 0
+            Call Err.Raise(1, , "Expected nonnegative integer")
+        End If
     End If
 End Sub
 
@@ -295,7 +289,7 @@ End Property
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function Emptie(ByVal inputLength As Long) As List
 With New List
-    Call .ResizeJust(inputLength)
+    Call .Resize(inputLength, True)
     Set Emptie = .Self
 End With
 End Function
@@ -1444,52 +1438,5 @@ End Function
 '
 'End Function
 
-Public Function Max(ByVal lst As List) As Variant
-    Dim temp As Variant
-    Let temp = lst(1)
-    
-    On Error GoTo NotComparable
-    
-    Dim i As Long
-    For i = 2 To lst.Length
-        If lst(i) > temp Then
-            Let temp = lst(i)
-        End If
-    Next i
-    
-    Let Max = temp
-    
-    If False Then
-NotComparable:
-        Call Err.Raise(1, , "Not comparable")
-    End If
-End Function
 
-Public Function Min(ByVal lst As List) As Variant
-    Dim temp As Variant
-    Let temp = lst(1)
-    
-    On Error GoTo NotComparable
-    
-    Dim i As Long
-    For i = 2 To lst.Length
-        If lst(i) < temp Then
-            Let temp = lst(i)
-        End If
-    Next i
-    
-    Let Min = temp
-    
-    If False Then
-NotComparable:
-        Call Err.Raise(1, , "Not comparable")
-    End If
-End Function
-
-Public Function Sum(ByVal lst As List) As Variant
-    Dim i As Long
-    For i = 1 To lst.Length
-        Let Sum = Sum + lst(i)
-    Next i
-End Function
 

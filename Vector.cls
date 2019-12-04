@@ -7,7 +7,6 @@ Attribute VB_GlobalNameSpace = False
 Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
-'@IgnoreModule
 '@Folder("Type")
 '@PredeclaredId
 Option Explicit
@@ -21,9 +20,55 @@ Option Explicit
 ' Self
 ' Length
 ' Resize
+' IsNumberType -> NumberTypeValidate
 ' Item
-' Clone
+' ItemNoCheck
 '
+' ## Generators ##
+'
+' Emptie ---> EmptyLike
+'         |-> Full -------> Repeat
+'         |             |-> FullLike
+'         |             |-> Zeros -> ZerosLike
+'         |             |-> Ones --> OnesLike
+'         |-> Arange
+'         |-> LinSpace ---> LogSpace
+'                       |-> GeomSpace
+' ## V -> V ##
+'
+' (EmptyLike) ---> Absolute
+'              |-> Power
+'              |-> Translate
+'              |-> Scaling -> Negate
+'
+' ## V -> F ##
+'
+' Max
+' Min
+' Sum
+' Norm
+'
+' ## V x V -> V ##
+'
+' VectorLengthValidate -|
+' (EmptyLike) --------------> Plus
+'                         |-> Minus
+'                         |-> Multiply
+' ## V x V -> F ##
+'
+' (VectorLengthValidate) -> InnerProduct
+'
+' ## Constructors ##
+'
+' FromList
+' FromArray
+' FromCollection
+'
+' ## Output ##
+'
+' Clone
+' ToImmediate ---> ToImmediateHead
+'              |-> ToImmediateHead
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Implementation
@@ -43,7 +88,34 @@ Public Property Get Length() As Long
 End Property
 
 Public Sub Resize(ByVal newLength As Long)
-    Call vecList.ResizeJust(newLength)
+    Call vecList.Resize(newLength, True)
+End Sub
+
+Private Function IsNumberType(ByRef what As Variant) As Boolean
+    Dim typeOfWhat As Long
+    Let typeOfWhat = VarType(what)
+    
+    If typeOfWhat = 3 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 4 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 5 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 20 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 2 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 17 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 14 Then
+        Let IsNumberType = True
+    End If
+End Function
+
+Private Sub NumberTypeValidate(ByRef what As Variant)
+    If Not IsNumberType(what) Then
+        Call Err.Raise(1, , "Expected a number")
+    End If
 End Sub
 
 '@DefaultMember
@@ -54,6 +126,7 @@ End Property
 
 Public Property Let Item(ByVal index As Long, ByVal what As Variant)
     Call NumberTypeValidate(what)
+    
     Let vecList(index) = what
 End Property
 
@@ -93,12 +166,12 @@ Public Function Full(ByVal inputLength As Long, ByVal what As Variant) As Vector
     End With
 End Function
 
-Public Function FullLike(ByVal vec As Vector, ByVal what As Variant) As Vector
-    Set FullLike = Full(vec.Length, what)
-End Function
-
 Public Function Repeat(ByVal what As Variant, ByVal times As Long) As Vector
     Set Repeat = Full(times, what)
+End Function
+
+Public Function FullLike(ByVal vec As Vector, ByVal what As Variant) As Vector
+    Set FullLike = Full(vec.Length, what)
 End Function
 
 Public Function Zeros(ByVal inputLength As Long) As Vector
@@ -190,7 +263,7 @@ Public Function GeomSpace(ByVal start As Variant, ByVal ends As Variant, _
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Unary Operation
+' V -> V
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function Absolute(ByVal vec As Vector) As Vector
 With EmptyLike(vec)
@@ -212,75 +285,152 @@ With EmptyLike(vec)
 End With
 End Function
 
-Public Function Negate(ByVal vec As Vector) As Vector
+Public Function Translate(ByVal vec As Vector, ByVal scalar As Variant) As Vector
 With EmptyLike(vec)
     Dim i As Long
     For i = 1 To vec.Length
-        Let .ItemNoCheck(i) = -vec.ItemNoCheck(i)
+        Let .ItemNoCheck(i) = scalar + vec.ItemNoCheck(i)
     Next i
-    Set Negate = .Self
+
+    Set Translate = .Self
 End With
 End Function
 
-'Public Function VecNorm(ByVal vec As List, Optional ByVal p As Variant = 2) As Variant
-'    If p = -1 Then
-'        Let VecNorm = Max(VecAbs(lst))
-'    ElseIf p = 0 Then
-'    ElseIf p = 1 Then
-'        Let VecNorm = Sum(VecAbs(lst))
-'    Else
-'        Let VecNorm = Sum(VecPow(VecAbs(lst), p)) ^ (1 / p)
-'    End If
-'End Function
-'
-'Public Function VecSum(ByVal vec1 As List, ByVal vec2 As List) As List
-'    If list1.Length <> list2.Length Then
-'        Call Err.Raise(1, , "Error")
-'    End If
-'
-'    With List.EmptyList(list1.Length)
-'        Dim i As Long
-'        For i = 1 To list1.Length
-'            Let .Self(i) = list1(i) + list2(i)
-'        Next i
-'
-'        Set VecSum = .Self
-'    End With
-'End Function
-'
-'Public Function VecProd(ByVal list1 As List, ByVal list2 As List) As List
-'    If list1.Length <> list2.Length Then
-'        Call Err.Raise(1, , "Error")
-'    End If
-'
-'    With List.EmptyList(list1.Length)
-'        Dim i As Long
-'        For i = 1 To list1.Length
-'            Let .Self(i) = list1(i) * list2(i)
-'        Next i
-'
-'        Set VecProd = .Self
-'    End With
-'End Function
-'
-'Public Function ScalarProd(ByVal what As Variant, ByVal lst As List) As Variant
-'With List.EmptyList(lst.Length)
-'    Dim i As Long
-'    For i = 1 To lst.Length
-'        Let .Self(i) = what * lst(i)
-'    Next i
-'
-'    Set ScalarProd = .Self
-'End With
-'End Function
-'
-'Public Function VecDot(ByVal list1 As List, ByVal list2 As List) As Variant
-'    If list1.Length <> list2.Length Then
-'        Call Err.Raise(1, , "Error")
-'    End If
-'
-'    Let VecDot = List.Sum(VecProd(list1, list2))
-'End Function
+Public Function Scaling(ByVal vec As Vector, ByVal scalar As Variant) As Vector
+With EmptyLike(vec)
+    Dim i As Long
+    For i = 1 To vec.Length
+        Let .ItemNoCheck(i) = scalar * vec.ItemNoCheck(i)
+    Next i
+
+    Set Scaling = .Self
+End With
+End Function
+
+Public Function Negate(ByVal vec As Vector) As Vector
+    Set Negate = Scaling(vec, -1)
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V -> F
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Max(ByVal vec As Vector) As Variant
+With vec
+    Let Max = .Self(1)
+    
+    Dim i As Long
+    For i = 2 To vec.Length
+        If .ItemNoCheck(i) > Max Then
+            Let Max = .ItemNoCheck(i)
+        End If
+    Next i
+End With
+End Function
+
+Public Function Min(ByVal vec As Vector) As Variant
+With vec
+    Let Min = .Self(1)
+    
+    Dim i As Long
+    For i = 2 To vec.Length
+        If .ItemNoCheck(i) < Min Then
+            Let Min = .ItemNoCheck(i)
+        End If
+    Next i
+End With
+End Function
+
+Public Function Sum(ByVal vec As Vector) As Variant
+With vec
+    Dim i As Long
+    For i = 1 To vec.Length
+        Let Sum = Sum + .ItemNoCheck(i)
+    Next i
+End With
+End Function
+
+Public Function Norm(ByVal vec As List, Optional ByVal p As Variant = 2) As Variant
+    If p = -1 Then
+        Let Norm = Max(Absolute(vec))
+    ElseIf p = 0 Then
+    ElseIf p = 1 Then
+        Let Norm = Sum(Absolute(vec))
+    Else
+        Let Norm = Sum(Power(Absolute(vec), p)) ^ (1 / p)
+    End If
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V x V -> V
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Sub VectorLengthValidate(ByVal vec1 As Vector, ByVal vec2 As Vector)
+    If vec1.Length <> vec2.Length Then
+        Call Err.Raise(1, , "Vector length mismatch")
+    End If
+End Sub
+
+Public Function Plus(ByVal vec1 As Vector, ByVal vec2 As Vector) As Vector
+    Call VectorLengthValidate(vec1, vec2)
+    
+    With EmptyLike(vec1)
+        Dim i As Long
+        For i = 1 To vec1.Length
+            Let .ItemNoCheck(i) = vec1.ItemNoCheck(i) + vec2.ItemNoCheck(i)
+        Next i
+
+        Set Plus = .Self
+    End With
+End Function
+
+Public Function Minus(ByVal vec1 As Vector, ByVal vec2 As Vector) As Vector
+    Call VectorLengthValidate(vec1, vec2)
+    
+    With EmptyLike(vec1)
+        Dim i As Long
+        For i = 1 To vec1.Length
+            Let .ItemNoCheck(i) = vec1.ItemNoCheck(i) - vec2.ItemNoCheck(i)
+        Next i
+
+        Set Minus = .Self
+    End With
+End Function
+
+Public Function Multiply(ByVal vec1 As Vector, ByVal vec2 As Vector) As Vector
+    Call VectorLengthValidate(vec1, vec2)
+
+    With EmptyLike(vec1)
+        Dim i As Long
+        For i = 1 To vec1.Length
+            Let .ItemNoCheck(i) = vec1.ItemNoCheck(i) * vec2.ItemNoCheck(i)
+        Next i
+
+        Set Multiply = .Self
+    End With
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V x V -> F
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function InnerProduct(ByVal vec1 As Vector, ByVal vec2 As Vector) As Variant
+    Call VectorLengthValidate(vec1, vec2)
+
+    Let InnerProduct = Sum(Multiply(vec1, vec2))
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Constructors
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function FromList() As Vector
+
+End Function
+
+Public Function FromArray() As Vector
+
+End Function
+
+Public Function FromCollection() As Vector
+
+End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
@@ -308,35 +458,4 @@ End Sub
 
 Public Sub ToImmediateTail(Optional ByVal tail As Long = 50)
     Call vecList.ToImmediateTail(tail)
-End Sub
-
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-' Output
-'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-
-Public Function IsNumberType(ByRef what As Variant) As Boolean
-    Dim typeOfWhat As Long
-    Let typeOfWhat = VarType(what)
-    
-    If typeOfWhat = 3 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 4 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 5 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 20 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 2 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 17 Then
-        Let IsNumberType = True
-    ElseIf typeOfWhat = 14 Then
-        Let IsNumberType = True
-    End If
-End Function
-
-Private Sub NumberTypeValidate(ByRef what As Variant)
-    If Not IsNumberType(what) Then
-        Call Err.Raise(1, , "Expected a number")
-    End If
 End Sub
