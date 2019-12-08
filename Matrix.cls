@@ -10,12 +10,72 @@ Attribute VB_Exposed = False
 '@Folder("Type")
 '@PredeclaredId
 Option Explicit
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Dependency Graphs
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' ## Implementation ##
+'
+' Class_Initialize
+' Self
+' LengthX
+' LengthY
+' Resize
+' IsIndexValid -> IndexValidate
+' IsNumberType -> NumberTypeValidate
+' ItemNoCheck
+' Item
+'
+' ## Generators ##
+'
+' Emptie ---> EmptyLike
+'         |-> Full -------> Repeat
+'         |             |-> FullLike
+'         |             |-> Zeros -> ZerosLike
+'         |             |-> Ones --> OnesLike
+'         |-> Arange
+'         |-> LinSpace ---> LogSpace
+'                       |-> GeomSpace
+' ## V -> V ##
+'
+' (EmptyLike) ---> Absolute
+'              |-> Power
+'              |-> Translate
+'              |-> Scaling -> Negate
+'
+' ## V -> F ##
+'
+' Max
+' Min
+' Sum
+' Norm
+'
+' ## V x V -> V ##
+'
+' VectorLengthValidate -|
+' (EmptyLike) --------------> Plus
+'                         |-> Minus
+'                         |-> Multiply
+' ## V x V -> F ##
+'
+' (VectorLengthValidate) -> InnerProduct
+'
+' ## Constructors ##
+'
+' FromList
+' FromArray
+' FromCollection
+'
+' ## Output ##
+'
+' Clone
+' ToImmediate ---> ToImmediateHead
+'              |-> ToImmediateHead
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Implementation
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Private Type Storage
-    Vectors As List
+    Lists As List
     LengthX As Long
     LengthY As Long
 End Type
@@ -23,7 +83,7 @@ End Type
 Private This As Storage
 
 Private Sub Class_Initialize()
-    Set This.Vectors = New List
+    Set This.Lists = New List
 End Sub
 
 Public Property Get Self() As Matrix
@@ -46,20 +106,20 @@ End Property
 'End Property
 
 Public Sub Resize(ByVal newLengthX As Long, ByVal newLengthY As Long)
-    Call This.Vectors.Resize(newLengthX, True)
+    Call This.Lists.Resize(newLengthX, True)
 
     Dim i As Long
     
     If newLengthX > This.LengthX Then
         For i = This.LengthX + 1 To newLengthX
-            Set This.Vectors(i) = New Vector
+            Set This.Lists(i) = New List
         Next i
     End If
     
     Let This.LengthX = newLengthX
     
     For i = 1 To newLengthX
-        Call This.Vectors.ItemNoCheck(i).Resize(newLengthY)
+        Call This.Lists.ItemNoCheck(i).Resize(newLengthY)
     Next i
     
     Let This.LengthY = newLengthY
@@ -104,43 +164,24 @@ Private Sub NumberTypeValidate(ByRef what As Variant)
     End If
 End Sub
 
+Public Property Get ItemNoCheck(ByVal indexX As Long, ByVal indexY As Long) As Variant
+    Let ItemNoCheck = This.Lists.ItemNoCheck(indexX).ItemNoCheck(indexY)
+End Property
+
+Public Property Let ItemNoCheck(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
+    Let This.Lists.ItemNoCheck(indexX).ItemNoCheck(indexY) = what
+End Property
+
 '@DefaultMember
 Public Property Get Item(ByVal indexX As Long, ByVal indexY As Long) As Variant
 Attribute Item.VB_UserMemId = 0
-    Let Item = This.Vectors(indexX)(indexY)
+    Let Item = This.Lists(indexX)(indexY)
 End Property
 
 Public Property Let Item(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
     Call NumberTypeValidate(what)
-    
-    Let This.Vectors(indexX)(indexY) = what
+    Let This.Lists(indexX)(indexY) = what
 End Property
-
-Public Property Get ItemNoCheck(ByVal indexX As Long, ByVal indexY As Long) As Variant
-    Let ItemNoCheck = This.Vectors.ItemNoCheck(indexX).ItemNoCheck(indexY)
-End Property
-
-Public Property Let ItemNoCheck(ByVal indexX As Long, ByVal indexY As Long, ByVal what As Variant)
-    Call NumberTypeValidate(what)
-    
-    Let This.Vectors.ItemNoCheck(indexX).ItemNoCheck(indexY) = what
-End Property
-
-Public Function Copy() As Matrix
-With New Matrix
-    Call .Resize(This.LengthX, This.LengthY)
-    
-    Dim i As Long
-    Dim j As Long
-    For i = 1 To This.LengthX
-        For j = 1 To This.LengthY
-            Let .ItemNoCheck(i, j) = This.Vectors.ItemNoCheck(i).ItemNoCheck(j)
-        Next j
-    Next i
-    
-    Set Copy = .Self
-End With
-End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Generators
@@ -148,7 +189,6 @@ End Function
 Public Function Emptie(ByVal newLengthX As Long, ByVal newLengthY As Long) As Matrix
 With New Matrix
     Call .Resize(newLengthX, newLengthY)
-    
     Set Emptie = .Self
 End With
 End Function
@@ -156,6 +196,71 @@ End Function
 Public Function EmptyLike(ByVal mat As Matrix) As Matrix
     Set EmptyLike = Emptie(mat.LengthX, mat.LengthY)
 End Function
+
+Public Function Full(ByVal newLengthX As Long, ByVal newLengthY As Long, ByVal what As Variant) As Matrix
+    Call NumberTypeValidate(what)
+    
+    With Emptie(newLengthX, newLengthY)
+        Dim j As Long
+        Dim i As Long
+        For i = 1 To newLengthX
+            For j = 1 To newLengthY
+                Let .ItemNoCheck(i, j) = what
+            Next j
+        Next i
+        
+        Set Full = .Self
+    End With
+End Function
+
+Public Function FullLike(ByVal mat As Matrix, ByVal what As Variant) As Matrix
+    Set FullLike = Full(mat.LengthX, mat.LengthY, what)
+End Function
+
+Public Function Zeros(ByVal newLengthX As Long, ByVal newLengthY As Long) As Matrix
+    Set Zeros = Full(newLengthX, newLengthY, 0)
+End Function
+
+Public Function ZerosLike(ByVal mat As Matrix) As Matrix
+    Set ZerosLike = Zeros(mat.LengthX, mat.LengthY)
+End Function
+
+Public Function Ones(ByVal newLengthX As Long, ByVal newLengthY As Long) As Matrix
+    Set Ones = Full(newLengthX, newLengthY, 1)
+End Function
+
+Public Function OnesLike(ByVal mat As Matrix) As Matrix
+    Set OnesLike = Ones(mat.LengthX, mat.LengthY)
+End Function
+
+Public Function Eye(ByVal newLengthX As Long, Optional ByVal newLengthY As Long = -1, _
+                    Optional ByVal diagonalOffset As Long) As Matrix
+    If newLengthY = -1 Then
+        Let newLengthY = newLengthX
+    End If
+    
+    With Zeros(newLengthX, newLengthY)
+        Dim i As Long
+        If diagonalOffset >= 0 Then
+            For i = 1 + diagonalOffset To IIf(newLengthX <= newLengthY, newLengthX, newLengthY)
+                Let .ItemNoCheck(i - diagonalOffset, i) = 1
+            Next i
+        Else ' diagonalOffset < 0
+            Let diagonalOffset = -diagonalOffset
+            
+            For i = 1 + diagonalOffset To IIf(newLengthX <= newLengthY, newLengthX, newLengthY)
+                Let .ItemNoCheck(i, i - diagonalOffset) = 1
+            Next i
+        End If
+        
+        Set Eye = .Self
+    End With
+End Function
+
+Public Function Identity(ByVal newLengthX As Long) As Matrix
+    Set Identity = Eye(newLengthX)
+End Function
+
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' M -> M
@@ -277,6 +382,22 @@ End Function
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Output
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Clone() As Matrix
+With New Matrix
+    Call .Resize(This.LengthX, This.LengthY)
+    
+    Dim i As Long
+    Dim j As Long
+    For i = 1 To This.LengthX
+        For j = 1 To This.LengthY
+            Let .ItemNoCheck(i, j) = This.Lists.ItemNoCheck(i).ItemNoCheck(j)
+        Next j
+    Next i
+    
+    Set Clone = .Self
+End With
+End Function
+
 Public Function ToArray() As Variant()
 
 End Function
@@ -285,3 +406,65 @@ Public Function ToArrayOfArrays() As Variant()
 
 End Function
 
+Public Sub ToImmediate()
+    Const n As Long = 8
+    Const nLess2 As Long = n - 2
+    
+    Dim lengthOfn As String * n
+    Dim lengthOfnLess2 As String * nLess2
+    
+    Dim j As Long
+    Dim temp As String
+    Dim i As Long
+    
+    If LengthY = 1 Then
+        For i = 1 To LengthX
+            If i = 1 Then
+                Let temp = "["
+            Else
+                Let temp = Space(1)
+            End If
+            
+            Let temp = temp & "[ "
+            
+            LSet lengthOfnLess2 = ItemNoCheck(i, 1)
+            
+            Let temp = temp & lengthOfnLess2 & " ]"
+            
+            If i = LengthX Then
+                Let temp = temp & "]"
+            End If
+            
+            Debug.Print temp
+        Next i
+
+    Else
+        For i = 1 To LengthX
+            If i = 1 Then
+                Let temp = "["
+            Else
+                Let temp = Space(1)
+            End If
+            
+            Let temp = temp & "[ "
+            
+            LSet lengthOfn = Left(ItemNoCheck(i, 1), nLess2) & ", "
+            
+            Let temp = temp & lengthOfn
+            
+            For j = 2 To LengthY - 1
+                LSet lengthOfn = Left(ItemNoCheck(i, j), nLess2) & ", "
+                Let temp = temp & lengthOfn
+            Next j
+            
+            LSet lengthOfnLess2 = ItemNoCheck(i, LengthY)
+            Let temp = temp & lengthOfnLess2 & " ]"
+            
+            If i = LengthX Then
+                Let temp = temp & "]"
+            End If
+            
+            Debug.Print temp
+        Next i
+    End If
+End Sub

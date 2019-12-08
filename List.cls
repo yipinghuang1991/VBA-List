@@ -10,7 +10,6 @@ Attribute VB_Exposed = False
 '@Folder("Type")
 '@PredeclaredId
 Option Explicit
-
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Dependency Graphs
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -27,13 +26,18 @@ Option Explicit
 ' ## Generators ##
 '
 ' Emptie ---> EmptyLike
-'         |-> Full ---> FullLike
-'                   |-> Repeat
-'
+'         |-> Full -------> FullLike
+'         |             |-> Repeat
+'         |             |-> Zeros -> ZerosLike
+'         |             |-> Ones --> OnesLike
+'         |-> Arange
+'         |-> LinSpace ---> LogSpace
+'                       |-> GeomSpace
 ' ## Information ##
 '
-' (IndexValidate) ~~~> LastIndexOf
-'                  |~> IndexOf ---> Contains
+' IsSameLength ------> SameLengthValidate
+' (IndexValidate) ---> LastIndexOf
+'                  |-> IndexOf ---> Contains
 '                               |-> NumberOf
 '                               --> IndexOfEach <-(Add)
 '
@@ -48,7 +52,7 @@ Option Explicit
 ' Copy
 ' Move
 '
-' (IndexValidate) ~> Shift
+' (IndexValidate) -> Shift
 '
 ' Permute ~> Swap
 ' SwapForSort ~> Sort
@@ -66,7 +70,7 @@ Option Explicit
 '
 ' (Full) ----------  |-------> GetUniqueIndex --
 ' (GetIndexList   |--|                         |-> Unique
-'  FromBoolList) --  |--+--|-> Keep ------------
+'  FromBoolList) --  ---+--|-> Keep ------------
 ' Map ------------------|  |-> KeepNot ----------> RemoveEach <-(IndexOfEach)
 '
 ' ## Information between Lists ##
@@ -97,6 +101,31 @@ Option Explicit
 '                                                            ^
 ' (InsertRange) ---------------------------------------------|
 '
+' ## V -> F ##
+'
+' Max
+' Min
+' Sum
+' Norm
+'
+' ## V -> V ##
+'
+' (EmptyLike) ---> Absolute
+'              |-> Power
+'              |-> Translate
+'              |-> Scaling -> Negate
+'
+' ## V x V -> F ##
+'
+' (SameLengthValidate) -> Dot
+'
+' ## V x V -> V ##
+'
+' SameLengthValidate -|
+' (EmptyLike) --------------> Add
+'                         |-> Substract
+'                         |-> Multiply
+'                         |-> Cross
 ' ## Constructors ##
 '
 ' (Clone) -------|
@@ -119,6 +148,10 @@ Option Explicit
 ' ToCollection
 ' ToImmediate ---> ToImmediateHead
 '              |-> ToImmediateTail
+'
+' ## Type Helper Functions ##
+'
+' IsNumberType -> NumberTypeValidate
 '
 ' ## Array Helper Functions ##
 '
@@ -313,16 +346,114 @@ Public Function Repeat(ByVal what As Variant, ByVal times As Long) As List
     Set Repeat = Full(times, what)
 End Function
 
+Public Function Zeros(ByVal inputLength As Long) As List
+    Set Zeros = Full(inputLength, 0)
+End Function
+
+Public Function ZerosLike(ByVal lst As List) As List
+    Set ZerosLike = Zeros(lst.Length)
+End Function
+
+Public Function Ones(ByVal inputLength As Long) As List
+    Set Ones = Full(inputLength, 1)
+End Function
+
+Public Function OnesLike(ByVal lst As List) As List
+    Set OnesLike = Ones(lst.Length)
+End Function
+
+Public Function Arange(ByVal start As Variant, ByVal ends As Variant, _
+                       Optional ByVal step As Variant = 1) As List
+    Dim extraLength As Long
+    Let extraLength = Int((ends - start) / step)
+
+    If extraLength < 0 Then Let extraLength = 0
+
+    With Emptie(1 + extraLength)
+        Let .ItemNoCheck(1) = start
+
+        Dim i As Long
+        For i = 2 To .Length
+            Let .ItemNoCheck(i) = .ItemNoCheck(i - 1) + step
+        Next i
+
+        Set Arange = .Self
+    End With
+End Function
+
+Public Function LinSpace(ByVal start As Variant, ByVal ends As Variant, _
+                         Optional ByVal num As Long = 50) As List
+With Emptie(num + 1)
+    Dim width As Double
+    Let width = (ends - start) / num
+
+    Let .ItemNoCheck(1) = start
+
+    Dim i As Long
+    For i = 2 To num
+        Let .ItemNoCheck(i) = .ItemNoCheck(1) + (i - 1) * width ' .ItemNoCheck(i - 1) + width
+    Next i
+
+    Let .ItemNoCheck(num + 1) = ends
+
+    Set LinSpace = .Self
+End With
+End Function
+
+Public Function LogSpace(ByVal start As Variant, ByVal ends As Variant, _
+                         Optional ByVal num As Long = 50, _
+                         Optional ByVal base As Double) As List
+    If base = 0 Then Let base = Math.Exp(1)
+
+    With LinSpace(start, ends, num)
+        Dim i As Long
+        For i = 1 To .Length
+            Let .ItemNoCheck(i) = base ^ (.ItemNoCheck(i))
+        Next i
+
+        Set LogSpace = .Self
+    End With
+End Function
+
+Public Function GeomSpace(ByVal start As Variant, ByVal ends As Variant, _
+                          Optional ByVal num As Long = 50, _
+                          Optional ByVal base As Double) As List
+    If base = 0 Then Let base = Math.Exp(1)
+
+    With LinSpace(Log(start) / Log(base), Log(ends) / Log(base), num)
+        Let .ItemNoCheck(1) = start
+
+        Dim i As Long
+        For i = 2 To .Length - 1
+            Let .ItemNoCheck(i) = base ^ (.ItemNoCheck(i))
+        Next i
+
+        Let .ItemNoCheck(.Length) = ends
+
+        Set GeomSpace = .Self
+    End With
+End Function
+
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Information
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Private Function IsSameLength(ByVal lst1 As List, ByVal lst2 As List) As Boolean
+    If lst1.Length = lst2.Length Then
+        Let IsSameLength = True
+    End If
+End Function
+
+Private Sub SameLengthValidate(ByVal lst1 As List, ByVal lst2 As List)
+    If Not IsSameLength(lst1, lst2) Then
+        Call Err.Raise(1, , "Length mismatch")
+    End If
+End Sub
+
 Public Function LastIndexOf(ByVal what As Variant, _
                             Optional ByVal indexStart As Long, _
                             Optional ByVal indexLength As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
-        If (indexStart < 1) Or (indexStart > This.Length) Then ' Call IndexValidate(indexStart)
-            Call Err.Raise(9)
-        End If
+        Call IndexValidate(indexStart)
     Else ' indexStart = 0
         Let indexStart = This.Length ' Default
     End If
@@ -366,9 +497,7 @@ Public Function IndexOf(ByVal what As Variant, _
                         Optional ByVal indexStart As Long, _
                         Optional ByVal indexLength As Long = -1) As Long ' Default to 0
     If indexStart Then ' indexStart <> 0
-        If (indexStart < 1) Or (indexStart > This.Length) Then ' Call IndexValidate(indexStart)
-            Call Err.Raise(9)
-        End If
+        Call IndexValidate(indexStart)
     Else ' indexStart = 0
         Let indexStart = 1 ' Default
     End If
@@ -607,9 +736,7 @@ Public Sub Shift(ByVal offset As Long, _
     Let thisLength = This.Length
     
     If indexStart Then ' indexStart <> 0
-        If (indexStart < 1) Or (indexStart > thisLength) Then
-            Call Err.Raise(9)
-        End If
+        Call IndexValidate(indexStart)
     Else ' indexStart = 0
         Let indexStart = 1 ' Default
     End If
@@ -757,12 +884,7 @@ Public Sub Sort(Optional ByVal isDescending As Boolean) ' Bubble sort, ascending
 End Sub
 
 Public Function SortAndGetPermutation(Optional ByVal isDescending As Boolean) As List ' Bubble sort, ascending
-With List.Emptie(This.Length)
-    Dim i As Long
-    For i = 1 To This.Length
-        Let .ItemNoCheck(i) = i
-    Next i
-    
+With Arange(1, This.Length)
     Dim swapped As Boolean
     Dim temp As Variant
     
@@ -1109,6 +1231,226 @@ End With
 End Function
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V -> F
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Max() As Variant
+    If Length > 0 Then
+        Let Max = ItemNoCheck(1)
+        
+        Dim i As Long
+        For i = 2 To Length
+            If ItemNoCheck(i) > Max Then
+                Let Max = ItemNoCheck(i)
+            End If
+        Next i
+    Else ' Length = 0
+        Let Max = Null
+    End If
+End Function
+
+Public Function Min() As Variant
+    If Length > 0 Then
+        Let Min = ItemNoCheck(1)
+        
+        Dim i As Long
+        For i = 2 To Length
+            If ItemNoCheck(i) < Min Then
+                Let Min = ItemNoCheck(i)
+            End If
+        Next i
+    Else ' Length = 0
+        Let Min = Null
+    End If
+End Function
+
+Public Function Sum() As Variant
+    If Length > 0 Then
+        Let Sum = 0
+        
+        Dim i As Long
+        For i = 1 To Length
+            Let Sum = Sum + ItemNoCheck(i)
+        Next i
+    Else
+        Let Sum = Null
+    End If
+End Function
+
+Public Function Prod() As Variant
+    If Length > 0 Then
+        Let Prod = 1
+        
+        Dim i As Long
+        For i = 1 To Length
+            Let Prod = Prod * ItemNoCheck(i)
+        Next i
+    Else
+        Let Prod = Null
+    End If
+End Function
+
+Public Function Norm(Optional ByVal p As Variant = 2) As Variant
+    If p = -1 Then
+        Let Norm = Me.Absolute.Max
+    ElseIf p = 0 Then
+    ElseIf p = 1 Then
+        Let Norm = Me.Absolute.Sum
+    ElseIf p > 0 Then
+        Let Norm = Me.Absolute.Power(p).Sum ^ (1 / p)
+    Else
+        Call Err.Raise("Expected nonnegative number")
+    End If
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V -> V
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Absolute() As List
+With EmptyLike(Me)
+    Dim i As Long
+    For i = 1 To Length
+        Let .ItemNoCheck(i) = Abs(ItemNoCheck(i))
+    Next i
+    
+    Set Absolute = .Self
+End With
+End Function
+
+Public Function Power(ByVal p As Variant) As List
+With EmptyLike(Me)
+    Dim i As Long
+    For i = 1 To Length
+        Let .ItemNoCheck(i) = ItemNoCheck(i) ^ p
+    Next i
+    
+    Set Power = .Self
+End With
+End Function
+
+Public Function Translate(ByVal scalar As Variant) As List
+With EmptyLike(Me)
+    Dim i As Long
+    For i = 1 To Length
+        Let .ItemNoCheck(i) = scalar + ItemNoCheck(i)
+    Next i
+    
+    Set Translate = .Self
+End With
+End Function
+
+Public Function Scaling(ByVal scalar As Variant) As List
+With EmptyLike(Me)
+    Dim i As Long
+    For i = 1 To Length
+        Let .ItemNoCheck(i) = scalar * ItemNoCheck(i)
+    Next i
+
+    Set Scaling = .Self
+End With
+End Function
+
+Public Function Negate() As List
+    Set Negate = Scaling(-1)
+End Function
+
+Public Function CumSum() As List
+With EmptyLike(Me)
+    If Length > 0 Then
+        Let .ItemNoCheck(1) = ItemNoCheck(1)
+    End If
+    
+    Dim i As Long
+    For i = 2 To Length
+        Let .ItemNoCheck(i) = .ItemNoCheck(i - 1) + ItemNoCheck(i)
+    Next i
+    
+    Set CumSum = .Self
+End With
+End Function
+
+Public Function CumProd() As List
+With EmptyLike(Me)
+    If Length > 0 Then
+        Let .ItemNoCheck(1) = ItemNoCheck(1)
+    End If
+    
+    Dim i As Long
+    For i = 2 To Length
+        Let .ItemNoCheck(i) = .ItemNoCheck(i - 1) * ItemNoCheck(i)
+    Next i
+    
+    Set CumProd = .Self
+End With
+End Function
+
+Public Function Diff() As List
+With Emptie(IIf(Length > 0, Length - 1, Length))
+    Dim i As Long
+    For i = 1 To Length - 1
+        Let .ItemNoCheck(i) = .ItemNoCheck(i + 1) - ItemNoCheck(i)
+    Next i
+    
+    Set Diff = .Self
+End With
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V x V -> F
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Dot(ByVal lst As List) As Variant
+    Call SameLengthValidate(Me, lst)
+
+    Let Dot = Me.Multiply(lst).Sum
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' V x V -> V
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public Function Plus(ByVal lst As List) As List
+    Call SameLengthValidate(Me, lst)
+    
+    With EmptyLike(Me)
+        Dim i As Long
+        For i = 1 To Length
+            Let .ItemNoCheck(i) = ItemNoCheck(i) + lst.ItemNoCheck(i)
+        Next i
+
+        Set Plus = .Self
+    End With
+End Function
+
+Public Function Substract(ByVal lst As List) As List
+    Call SameLengthValidate(Me, lst)
+    
+    With EmptyLike(Me)
+        Dim i As Long
+        For i = 1 To Length
+            Let .ItemNoCheck(i) = ItemNoCheck(i) - lst.ItemNoCheck(i)
+        Next i
+
+        Set Substract = .Self
+    End With
+End Function
+
+Public Function Multiply(ByVal lst As List) As List
+    Call SameLengthValidate(Me, lst)
+
+    With EmptyLike(Me)
+        Dim i As Long
+        For i = 1 To Length
+            Let .ItemNoCheck(i) = ItemNoCheck(i) * lst.ItemNoCheck(i)
+        Next i
+
+        Set Multiply = .Self
+    End With
+End Function
+
+Public Function Cross(ByVal lst As List) As List
+    Call SameLengthValidate(Me, lst)
+    
+End Function
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 ' Constructors
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 Public Function Concatenate(ByVal listL As List, ByVal listR As List) As List
@@ -1365,6 +1707,36 @@ End Sub
 
 Public Sub ToImmediateTail(Optional ByVal tail As Long = 50)
     Call ToImmediate(0, tail)
+End Sub
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' Type Helper Functions
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Private Function IsNumberType(ByRef what As Variant) As Boolean
+    Dim typeOfWhat As Long
+    Let typeOfWhat = VarType(what)
+    
+    If typeOfWhat = 3 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 4 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 5 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 20 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 2 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 17 Then
+        Let IsNumberType = True
+    ElseIf typeOfWhat = 14 Then
+        Let IsNumberType = True
+    End If
+End Function
+
+Private Sub NumberTypeValidate(ByRef what As Variant)
+    If Not IsNumberType(what) Then
+        Call Err.Raise(1, , "Expected a number")
+    End If
 End Sub
 
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
